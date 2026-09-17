@@ -1,0 +1,18 @@
+{
+  "name": "Mi Rutina de Gym",
+  "short_name": "Rutina Gym",
+  "description": "Rutina de gimnasio de 5 días con temporizadores de calentamiento y descanso, seguimiento de series y rotación mensual de ejercicios.",
+  "lang": "es",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0f13",
+  "theme_color": "#0d0f13",
+  "categories": ["health", "fitness", "lifestyle"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f13">
+<meta name="description" content="Rutina de gimnasio de 5 días con temporizadores, seguimiento de series y rotación mensual de ejercicios.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rutina Gym">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Mi Rutina de Gym</title>
+<style>
+  :root{
+    --bg:#0d0f13;
+    --bg-elevated:#14171d;
+    --card:#1b1f28;
+    --card-alt:#20242e;
+    --border:#2a2f3a;
+    --text:#f5f6f8;
+    --text-dim:#9aa3b2;
+    --text-faint:#5c6472;
+    --accent:#ff6a3d;
+    --accent-dim:#ff6a3d33;
+    --accent2:#22d3ee;
+    --success:#3ddc84;
+    --success-dim:#3ddc8433;
+    --danger:#ff5470;
+    --radius:18px;
+    --radius-sm:12px;
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+    padding-bottom:calc(96px + var(--safe-bottom));
+  }
+  h1,h2,h3,p{margin:0;}
+  button{font-family:inherit;}
+
+  /* ---------- Header ---------- */
+  header.app-header{
+    position:sticky; top:0; z-index:20;
+    background:linear-gradient(180deg,var(--bg-elevated) 80%,transparent);
+    padding:calc(14px + var(--safe-top)) 18px 10px;
+  }
+  .app-title{font-size:20px; font-weight:800; letter-spacing:.2px; display:flex; align-items:center; gap:8px;}
+  .app-sub{color:var(--text-dim); font-size:13px; margin-top:2px;}
+
+  /* ---------- Tabs ---------- */
+  nav.tabs{display:flex; gap:8px; overflow-x:auto; padding:10px 14px 4px; scrollbar-width:none;}
+  nav.tabs::-webkit-scrollbar{display:none;}
+  .tab-btn{
+    flex:0 0 auto; background:var(--card); border:1px solid var(--border); color:var(--text-dim);
+    padding:10px 16px; border-radius:999px; font-size:14px; font-weight:600; white-space:nowrap;
+  }
+  .tab-btn.active{background:linear-gradient(135deg,var(--accent),#ff8f5c); color:#1a0d05; border-color:transparent;}
+
+  main{padding:6px 16px 20px;}
+  .view{display:none;}
+  .view.active{display:block; animation:fadeIn .25s ease;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  /* ---------- Tarjeta de ajustes ---------- */
+  .settings-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; margin:8px 0 14px;
+  }
+  .settings-card h3{font-size:14px; font-weight:800; margin-bottom:10px;}
+  .set-line{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid var(--border);}
+  .set-line:first-of-type{border-top:none;}
+  .set-label{font-size:13px; line-height:1.35;}
+  .set-label small{display:block; color:var(--text-faint); font-size:11px; margin-top:2px;}
+  .switch{position:relative; flex:0 0 auto; width:50px; height:29px;}
+  .switch input{position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0;}
+  .switch .slider{
+    position:absolute; inset:0; background:var(--card-alt); border:1px solid var(--border);
+    border-radius:999px; transition:.2s; pointer-events:none;
+  }
+  .switch .slider::after{
+    content:''; position:absolute; top:3px; left:3px; width:21px; height:21px; border-radius:50%;
+    background:var(--text-faint); transition:.2s;
+  }
+  .switch input:checked + .slider{background:var(--success-dim); border-color:var(--success);}
+  .switch input:checked + .slider::after{background:var(--success); transform:translateX(21px);}
+  .mini-btn{
+    background:var(--card-alt); border:1px solid var(--border); color:var(--text);
+    padding:8px 13px; border-radius:999px; font-size:12px; font-weight:700; flex:0 0 auto;
+  }
+  .mini-btn.warn{border-color:var(--accent); color:var(--accent);}
+  .status-pill{font-size:11px; font-weight:700; padding:4px 9px; border-radius:999px; flex:0 0 auto;}
+  .status-pill.ok{background:var(--success-dim); color:var(--success);}
+  .status-pill.off{background:#ffffff0f; color:var(--text-faint);}
+
+  .cycle-box{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background:var(--card-alt); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:12px 14px; margin-top:10px;
+  }
+  .cycle-info{font-size:13px; line-height:1.4;}
+  .cycle-info b{color:var(--accent2);}
+  .cycle-info small{display:block; color:var(--text-faint); font-size:11px; margin-top:3px;}
+
+  /* ---------- Calentamiento ---------- */
+  .warmup-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:22px 18px 26px; text-align:center;
+  }
+  .warmup-card h2{font-size:18px; font-weight:800;}
+  .warmup-card .hint{color:var(--text-dim); font-size:13px; margin-top:6px; line-height:1.5;}
+
+  .ring-wrap{position:relative; width:220px; height:220px; margin:24px auto 8px; max-width:100%;}
+  .ring-wrap svg{width:100%; height:100%; transform:rotate(-90deg);}
+  .ring-bg{fill:none; stroke:var(--card-alt); stroke-width:14;}
+  .ring-fg{fill:none; stroke:url(#gradAccent); stroke-width:14; stroke-linecap:round; transition:stroke-dashoffset .3s linear;}
+  .ring-center{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  .ring-time{font-size:40px; font-weight:800; font-variant-numeric:tabular-nums;}
+  .ring-label{color:var(--text-dim); font-size:12px; margin-top:4px; text-transform:uppercase; letter-spacing:1px;}
+
+  .warmup-select{display:flex; gap:10px; justify-content:center; margin:18px 0 4px;}
+  .pill-choice{background:var(--card-alt); border:1px solid var(--border); color:var(--text); padding:10px 18px; border-radius:999px; font-weight:700; font-size:14px;}
+  .pill-choice.selected{background:var(--accent2); border-color:var(--accent2); color:#04262b;}
+
+  .warmup-controls{display:flex; gap:12px; justify-content:center; margin-top:20px;}
+  .btn-big{border:none; border-radius:var(--radius-sm); padding:14px 22px; font-size:15px; font-weight:800; min-width:120px;}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),#ff8f5c); color:#1a0d05;}
+  .btn-ghost{background:var(--card-alt); color:var(--text); border:1px solid var(--border);}
+  .btn-success{background:linear-gradient(135deg,var(--success),#67f0a6); color:#052e17;}
+
+  .goto-routine{margin-top:20px; display:none;}
+  .goto-routine.show{display:block;}
+
+  /* ---------- Vista de día ---------- */
+  .day-summary{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--card); border:1px solid var(--border);
+    border-radius:var(--radius-sm); padding:14px 16px; margin:8px 0 14px; gap:12px;
+  }
+  .day-summary .duration{font-size:13px; color:var(--text-dim); line-height:1.5;}
+  .day-summary .duration b{color:var(--text); font-size:15px;}
+  .day-summary .variant-tag{color:var(--accent2); font-weight:700;}
+  .progress-ring-mini{position:relative; width:52px; height:52px; flex:0 0 auto;}
+  .progress-ring-mini svg{width:100%; height:100%; transform:rotate(-90deg);}
+  .progress-ring-mini .bg{fill:none; stroke:var(--card-alt); stroke-width:5;}
+  .progress-ring-mini .fg{fill:none; stroke:var(--success); stroke-width:5; stroke-linecap:round; transition:stroke-dashoffset .3s;}
+  .progress-ring-mini span{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800;}
+
+  .reset-day-btn{
+    display:block; margin:2px auto 16px; background:transparent; border:1px solid var(--border);
+    color:var(--text-faint); padding:8px 14px; border-radius:999px; font-size:12px;
+  }
+
+  .ex-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    overflow:hidden; margin-bottom:14px; transition:opacity .25s,border-color .25s;
+  }
+  .ex-card.done{border-color:var(--success-dim); opacity:.6;}
+  .ex-card.done .ex-name{text-decoration:line-through; color:var(--text-dim);}
+
+  /* foto real (free-exercise-db, dominio público): dos tomas en crossfade */
+  .ex-photo-wrap{position:relative; width:100%; aspect-ratio:3/2; background:var(--card-alt); overflow:hidden;}
+  .ex-photo{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+  .ex-photo.f0{animation:crossfadeA 2.6s ease-in-out infinite;}
+  .ex-photo.f1{opacity:0; animation:crossfadeB 2.6s ease-in-out infinite;}
+  @keyframes crossfadeA{0%,40%{opacity:1;} 50%,100%{opacity:0;}}
+  @keyframes crossfadeB{0%,40%{opacity:0;} 50%,100%{opacity:1;}}
+  .photo-badge{
+    position:absolute; top:8px; left:8px; z-index:2; font-size:9px; letter-spacing:.5px;
+    background:#000000b3; color:#fff; padding:3px 7px; border-radius:6px; text-transform:uppercase;
+  }
+
+  /* diagrama animado de respaldo si la foto no carga */
+  .ex-fallback{position:absolute; inset:0; display:none; align-items:center; justify-content:center;}
+  .ex-photo-wrap.broken .ex-photo{display:none;}
+  .ex-photo-wrap.broken .photo-badge{display:none;}
+  .ex-photo-wrap.broken .ex-fallback{display:flex;}
+  .anim-badge{
+    position:absolute; top:8px; left:8px; font-size:8px; letter-spacing:.5px;
+    background:#00000080; color:var(--text-dim); padding:2px 5px; border-radius:5px; text-transform:uppercase;
+  }
+  .anim-stage{width:84px; height:84px; position:relative;}
+  .track{position:absolute; left:14px; right:14px; top:50%; height:4px; background:var(--border); border-radius:2px; transform:translateY(-50%);}
+  .mover{position:absolute; width:20px; height:20px; border-radius:50%; background:var(--accent); top:50%; box-shadow:0 0 0 4px var(--accent-dim);}
+  .arm{position:absolute; width:3px; height:30px; background:var(--accent2); border-radius:2px; transform-origin:bottom center;}
+  .anim-press .mover{left:50%; margin-left:-10px; margin-top:-10px; animation:pressMove 1.6s ease-in-out infinite;}
+  @keyframes pressMove{0%,100%{transform:translateX(-18px);} 50%{transform:translateX(18px);}}
+  .anim-pull .mover{left:50%; margin-left:-10px; margin-top:-10px; animation:pullMove 1.5s ease-in-out infinite;}
+  @keyframes pullMove{0%,100%{transform:translateY(-18px);} 50%{transform:translateY(18px);}}
+  .anim-pull .track{width:4px; height:56px; left:50%; top:14px; transform:translateX(-50%);}
+  .anim-fly .arm.left{left:50%; top:52px; animation:flyLeft 1.5s ease-in-out infinite;}
+  .anim-fly .arm.right{left:50%; top:52px; animation:flyRight 1.5s ease-in-out infinite;}
+  @keyframes flyLeft{0%,100%{transform:rotate(70deg);} 50%{transform:rotate(20deg);}}
+  @keyframes flyRight{0%,100%{transform:rotate(-70deg);} 50%{transform:rotate(-20deg);}}
+  .anim-hinge .arm{left:50%; top:66px; background:var(--accent); animation:hingeSwing 1.4s ease-in-out infinite;}
+  @keyframes hingeSwing{0%,100%{transform:rotate(-10deg);} 50%{transform:rotate(-85deg);}}
+  .anim-hip .mover{left:50%; margin-left:-16px; width:32px; height:14px; border-radius:8px; top:50%; margin-top:-7px; animation:hipPulse 1.3s ease-in-out infinite;}
+  @keyframes hipPulse{0%,100%{transform:translateY(14px) scaleX(1);} 50%{transform:translateY(-10px) scaleX(1.15);}}
+  .anim-core .mover{left:50%; margin-left:-15px; width:30px; height:30px; border-radius:8px; margin-top:-15px; animation:coreTwist 1.6s ease-in-out infinite;}
+  @keyframes coreTwist{0%,100%{transform:rotate(-18deg);} 50%{transform:rotate(18deg);}}
+
+  .ex-body{padding:14px;}
+  .ex-name{font-size:14.5px; font-weight:700; line-height:1.3;}
+  .ex-meta{color:var(--accent2); font-size:12.5px; font-weight:700; margin-top:3px;}
+  .ex-tip{color:var(--text-dim); font-size:12px; margin-top:6px; line-height:1.4;}
+
+  .set-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .set-check{position:relative; width:40px; height:40px;}
+  .set-input{position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; width:100%; height:100%;}
+  .set-box{
+    position:absolute; inset:0; border-radius:10px; background:var(--card-alt);
+    border:2px solid var(--border); display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:14px; pointer-events:none;
+  }
+  .set-box .chk{position:absolute; opacity:0; transform:scale(.4); transition:.15s;}
+  .set-box .num{transition:.15s;}
+  .set-input:checked + .set-box{background:var(--success); border-color:var(--success); color:#052e17;}
+  .set-input:checked + .set-box .num{opacity:0; transform:scale(.4);}
+  .set-input:checked + .set-box .chk{opacity:1; transform:scale(1);}
+
+  /* ---------- Temporizador de descanso ---------- */
+  .rest-bar{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    background:var(--bg-elevated); border-top:1px solid var(--border);
+    padding:12px 16px calc(12px + var(--safe-bottom)); display:none;
+  }
+  .rest-bar.show{display:block;}
+  .rest-bar.alert{animation:alertFlash .5s ease infinite;}
+  @keyframes alertFlash{0%,100%{background:var(--bg-elevated);} 50%{background:var(--danger);}}
+  .rest-quick{display:flex; gap:8px;}
+  .rest-quick button{
+    flex:1; background:var(--card); border:1px solid var(--border); color:var(--text);
+    padding:12px 6px; border-radius:var(--radius-sm); font-weight:800; font-size:13.5px;
+  }
+  .rest-running{display:none; align-items:center; gap:14px;}
+  .rest-running.show{display:flex;}
+  .rest-time{font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; flex:0 0 auto;}
+  .rest-msg{flex:1; font-size:13px; color:var(--text-dim); line-height:1.35;}
+  .rest-running .btn-ghost{padding:10px 14px; font-size:13px; min-width:auto;}
+
+  footer.hint{text-align:center; color:var(--text-faint); font-size:11px; padding:10px 20px 4px; line-height:1.5;}
+
+  #installBtn{display:none; width:100%; margin-top:10px;}
+  #installBtn.show{display:block;}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-title"><span>🏋️</span> Mi Rutina de Gym</div>
+  <div class="app-sub" id="headerSub">Plan de 5 días · progreso guardado en este dispositivo</div>
+</header>
+
+<nav class="tabs" id="tabs"></nav>
+
+<main>
+  <!-- ===== Vista: Calentamiento + Ajustes ===== -->
+  <section class="view" id="view-warmup">
+
+    <div class="settings-card">
+      <h3>⚙️ Ajustes de entrenamiento</h3>
+
+      <div class="set-line">
+        <div class="set-label">
+          Mantener la pantalla encendida
+          <small>Evita que el celular se apague mientras entrenas.</small>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="keepAwakeToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="set-line">
+        <div class="set-label">
+          Alarma con pantalla apagada
+          <small>Programa el sonido por adelantado para que suene aunque bloquees el celular.</small>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="bgAlarmToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="set-line">
+        <div class="set-label">
+          Notificaciones de alarma
+          <small>Aviso del sistema + vibración al terminar descanso o calentamiento.</small>
+        </div>
+        <button class="mini-btn" id="notifBtn">Activar</button>
+      </div>
+
+      <div class="cycle-box">
+        <div class="cycle-info">
+          Ciclo <b id="cycleNum">1</b> · Variante <b id="variantLetter">A</b>
+          <small id="cycleHint">Rota cada mes: cambia los ejercicios y mueve los músculos de día.</small>
+        </div>
+        <button class="mini-btn warn" id="rotateBtn">🔄 Rotar</button>
+      </div>
+
+      <button class="btn-big btn-success" id="installBtn">📲 Instalar app en el celular</button>
+    </div>
+
+    <div class="warmup-card">
+      <h2>Calentamiento</h2>
+      <p class="hint">Elige la duración y prepara el cuerpo antes de ir a las pesas.</p>
+
+      <div class="ring-wrap">
+        <svg viewBox="0 0 220 220">
+          <defs>
+            <linearGradient id="gradAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#ff6a3d"/>
+              <stop offset="100%" stop-color="#ff8f5c"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-bg" cx="110" cy="110" r="96"></circle>
+          <circle class="ring-fg" id="warmupRing" cx="110" cy="110" r="96"></circle>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-time" id="warmupTimeLabel">12:00</div>
+          <div class="ring-label" id="warmupStateLabel">Listo para iniciar</div>
+        </div>
+      </div>
+
+      <div class="warmup-select" id="warmupSelect">
+        <button class="pill-choice" data-min="10">10 min</button>
+        <button class="pill-choice selected" data-min="12">12 min</button>
+        <button class="pill-choice" data-min="15">15 min</button>
+      </div>
+
+      <div class="warmup-controls">
+        <button class="btn-big btn-primary" id="warmupStartBtn">Iniciar</button>
+        <button class="btn-big btn-ghost" id="warmupResetBtn">Reiniciar</button>
+      </div>
+
+      <div class="goto-routine" id="warmupGoto">
+        <button class="btn-big btn-success" id="warmupGotoBtn">Ir a mi rutina de hoy →</button>
+      </div>
+    </div>
+
+    <footer class="hint">
+      Fotos de ejercicios: free-exercise-db (dominio público).<br>
+      Se guardan solas la primera vez que las ves, para funcionar sin señal.
+    </footer>
+  </section>
+
+  <div id="daysContainer"></div>
+</main>
+
+<!-- ===== Temporizador de descanso (solo dentro de un día) ===== -->
+<div class="rest-bar" id="restBar">
+  <div class="rest-quick" id="restQuick">
+    <button data-sec="45">⏱ 45s</button>
+    <button data-sec="60">⏱ 1 min</button>
+    <button data-sec="120">⏱ 2 min</button>
+  </div>
+  <div class="rest-running" id="restRunning">
+    <div class="rest-time" id="restTimeLabel">00:45</div>
+    <div class="rest-msg" id="restMsgLabel">Descansando… vuelve a la máquina cuando termine.</div>
+    <button class="btn-ghost" id="restCancelBtn">Cancelar</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   DATOS: rutina de 5 días.
+   Cada ejercicio trae 2 alternativas (alts) con el MISMO número de series,
+   repeticiones y descanso, para que al rotar la duración del día no cambie.
+   ========================================================================= */
+const SEC_PER_REP = 3.5;        // segundos aproximados por repetición
+const TRANSITION_SECONDS = 120; // cambio de máquina / ajuste de peso
+const EXDB = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+
+const DAYS = [
+  { id:'d1', tag:'Pecho', title:'Pecho y Tríceps', exercises:[
+    {name:'Press de banca en máquina', ref:'Machine_Bench_Press', anim:'press', sets:4, reps:10, rest:100, tip:'Empuja con el pecho y exhala en el impulso; no bloquees los codos con fuerza.', alts:[
+      {name:'Press de pecho en máquina (palanca)', ref:'Leverage_Chest_Press', tip:'Espalda pegada al respaldo; empuja hasta casi extender sin trabar el codo.'},
+      {name:'Press de pecho en polea', ref:'Cable_Chest_Press', tip:'Un paso al frente para mantener tensión constante en el pecho.'}]},
+    {name:'Press inclinado en máquina', ref:'Leverage_Incline_Chest_Press', anim:'press', sets:4, reps:10, rest:100, tip:'Ajusta el asiento para que la barra quede a la altura de la parte alta del pecho.', alts:[
+      {name:'Press inclinado en polea', ref:'Incline_Cable_Chest_Press', tip:'Codos a 45°, empuja hacia arriba y adelante.'},
+      {name:'Press inclinado en máquina Smith', ref:'Smith_Machine_Incline_Bench_Press', tip:'Baja la barra controlada hasta la clavícula.'}]},
+    {name:'Aperturas en máquina (pec deck)', ref:'Butterfly', anim:'fly', sets:4, reps:12, rest:75, tip:'Junta las manijas al frente sin despegar la espalda del respaldo.', alts:[
+      {name:'Aperturas en polea en banco plano', ref:'Flat_Bench_Cable_Flyes', tip:'Codos ligeramente flexionados; abre hasta sentir estiramiento.'},
+      {name:'Aperturas inclinadas en polea', ref:'Incline_Cable_Flye', tip:'Junta las manos arriba del pecho, sin chocar las manijas.'}]},
+    {name:'Fondos en máquina asistida', ref:'Dip_Machine', anim:'press', sets:3, reps:10, rest:90, tip:'Baja hasta 90° de codo y controla el descenso.', alts:[
+      {name:'Fondos en banco', ref:'Bench_Dips', tip:'Codos hacia atrás, no abras los hombros.'},
+      {name:'Fondos en paralelas (tríceps)', ref:'Dips_-_Triceps_Version', tip:'Torso vertical para cargar el tríceps.'}]},
+    {name:'Extensión de tríceps en polea', ref:'Triceps_Pushdown', anim:'hinge', sets:4, reps:12, rest:75, tip:'Mantén los codos pegados al torso durante todo el recorrido.', alts:[
+      {name:'Extensión de tríceps con cuerda', ref:'Triceps_Pushdown_-_Rope_Attachment', tip:'Separa la cuerda al final del movimiento.'},
+      {name:'Extensión de tríceps agarre invertido', ref:'Reverse_Grip_Triceps_Pushdown', tip:'Palmas arriba; baja peso, la muñeca manda.'}]},
+    {name:'Press francés en polea', ref:'Triceps_Overhead_Extension_with_Rope', anim:'hinge', sets:4, reps:12, rest:60, tip:'Solo el antebrazo se mueve; el codo permanece fijo.', alts:[
+      {name:'Extensión sobre la cabeza con cuerda', ref:'Cable_Rope_Overhead_Triceps_Extension', tip:'Codos apuntando al frente, no los abras.'},
+      {name:'Press francés acostado en polea', ref:'Cable_Lying_Triceps_Extension', tip:'Baja hasta la frente y extiende sin mover el hombro.'}]},
+    {name:'Patada de tríceps en polea', ref:'Tricep_Dumbbell_Kickback', anim:'hinge', sets:3, reps:15, rest:60, tip:'Extiende completo y aprieta el tríceps 1 segundo arriba.', alts:[
+      {name:'Extensión de tríceps a una mano', ref:'Cable_One_Arm_Tricep_Extension', tip:'Codo fijo al costado; controla la vuelta.'},
+      {name:'Extensión en polea baja de pie', ref:'Standing_Low-Pulley_One-Arm_Triceps_Extension', tip:'Mantén el torso firme, sin balanceo.'}]},
+    {name:'Press cerrado en máquina de pecho', ref:'Smith_Machine_Close-Grip_Bench_Press', anim:'press', sets:3, reps:12, rest:60, tip:'Manos más juntas que en el press normal para enfatizar tríceps.', alts:[
+      {name:'Extensión de tríceps en máquina', ref:'Machine_Triceps_Extension', tip:'Ajusta el asiento para alinear el codo con el eje.'},
+      {name:'Extensión de tríceps arrodillado', ref:'Kneeling_Cable_Triceps_Extension', tip:'Cadera firme; el movimiento es solo de codo.'}]},
+    {name:'Cruce de poleas (cable crossover)', ref:'Cable_Crossover', anim:'fly', sets:3, reps:15, rest:60, tip:'Cruza las manos al frente de la cadera manteniendo el pecho arriba.', alts:[
+      {name:'Cruce de poleas bajo', ref:'Low_Cable_Crossover', tip:'Sube las manos hacia el pecho, apretando arriba.'},
+      {name:'Cruce de polea a un brazo', ref:'Single-Arm_Cable_Crossover', tip:'Completa un lado antes de cambiar.'}]},
+  ]},
+
+  { id:'d2', tag:'Espalda', title:'Espalda y Bíceps', exercises:[
+    {name:'Jalón al pecho en polea', ref:'Wide-Grip_Lat_Pulldown', anim:'pull', sets:4, reps:10, rest:100, tip:'Lleva la barra hacia la parte alta del pecho y saca pecho.', alts:[
+      {name:'Jalón al pecho agarre cerrado', ref:'Close-Grip_Front_Lat_Pulldown', tip:'Codos pegados al cuerpo; aprieta la espalda abajo.'},
+      {name:'Jalón al pecho recorrido completo', ref:'Full_Range-Of-Motion_Lat_Pulldown', tip:'Estira arriba del todo antes de volver a jalar.'}]},
+    {name:'Remo en máquina sentado', ref:'Seated_Cable_Rows', anim:'pull', sets:4, reps:10, rest:100, tip:'Junta los omóplatos al final del recorrido.', alts:[
+      {name:'Remo alto en máquina', ref:'Leverage_High_Row', tip:'Pecho apoyado; tira con los codos, no con las manos.'},
+      {name:'Remo inclinado en máquina Smith', ref:'Smith_Machine_Bent_Over_Row', tip:'Espalda recta a 45°, barra hacia el ombligo.'}]},
+    {name:'Remo en máquina T', ref:'Lying_T-Bar_Row', anim:'pull', sets:4, reps:10, rest:90, tip:'Mantén el torso fijo, tira con la espalda y no con los brazos.', alts:[
+      {name:'Remo isolateral en máquina', ref:'Leverage_Iso_Row', tip:'Un brazo a la vez para corregir descompensaciones.'},
+      {name:'Remo con barra inclinado', ref:'Bent_Over_Barbell_Row', tip:'Bisagra de cadera, espalda neutra en todo momento.'}]},
+    {name:'Pull-over en polea', ref:'Straight-Arm_Pulldown', anim:'pull', sets:3, reps:12, rest:75, tip:'Brazos semi-extendidos; siente el estiramiento en el dorsal.', alts:[
+      {name:'Pull-over con cuerda en polea', ref:'Rope_Straight-Arm_Pulldown', tip:'Lleva la cuerda hasta los muslos sin doblar el codo.'},
+      {name:'Jalón a un brazo en polea', ref:'One_Arm_Lat_Pulldown', tip:'Estira bien arriba y jala hasta el costado.'}]},
+    {name:'Curl de bíceps en máquina', ref:'Machine_Bicep_Curl', anim:'hinge', sets:4, reps:12, rest:75, tip:'No balancees los hombros, sube controlado.', alts:[
+      {name:'Curl predicador en máquina', ref:'Machine_Preacher_Curls', tip:'Axilas apoyadas en el pad; no despegues los codos.'},
+      {name:'Curl predicador en polea', ref:'Cable_Preacher_Curl', tip:'Tensión constante; baja lento hasta casi extender.'}]},
+    {name:'Curl en polea baja', ref:'Standing_Biceps_Cable_Curl', anim:'hinge', sets:4, reps:12, rest:60, tip:'Codos fijos junto al torso durante toda la serie.', alts:[
+      {name:'Curl a un brazo en polea', ref:'Standing_One-Arm_Cable_Curl', tip:'Gira la muñeca hacia afuera al subir.'},
+      {name:'Curl en poleas altas', ref:'High_Cable_Curls', tip:'Brazos en cruz; aprieta el bíceps en el punto alto.'}]},
+    {name:'Curl martillo en polea', ref:'Cable_Hammer_Curls_-_Rope_Attachment', anim:'hinge', sets:3, reps:15, rest:60, tip:'Agarre neutro; enfatiza el braquial.', alts:[
+      {name:'Curl martillo con mancuernas', ref:'Hammer_Curls', tip:'Palmas enfrentadas; sin balancear el torso.'},
+      {name:'Curl martillo cruzado', ref:'Cross_Body_Hammer_Curl', tip:'Lleva la mancuerna hacia el hombro contrario.'}]},
+    {name:'Jalón tras nuca en máquina', ref:'Wide-Grip_Pulldown_Behind_The_Neck', anim:'pull', sets:3, reps:12, rest:60, tip:'Con cuidado, baja solo hasta la nuca, sin forzar el cuello.', alts:[
+      {name:'Jalón con agarre en V', ref:'V-Bar_Pulldown', tip:'Agarre neutro, tira hasta el pecho.'},
+      {name:'Jalón agarre supino', ref:'Underhand_Cable_Pulldowns', tip:'Palmas hacia ti; codos pegados al torso.'}]},
+    {name:'Remo bajo en polea (unilateral)', ref:'Seated_One-arm_Cable_Pulley_Rows', anim:'pull', sets:3, reps:12, rest:60, tip:'Completa un lado antes de cambiar de brazo.', alts:[
+      {name:'Remo arrodillado en polea alta', ref:'Kneeling_High_Pulley_Row', tip:'Tira hacia el pecho manteniendo la cadera firme.'},
+      {name:'Remo elevado en polea', ref:'Elevated_Cable_Rows', tip:'Pecho arriba; no redondees la espalda baja.'}]},
+  ]},
+
+  { id:'d3', tag:'Piernas', title:'Piernas', exercises:[
+    {name:'Prensa de piernas', ref:'Leg_Press', anim:'press', sets:4, reps:12, rest:140, tip:'Pies a la anchura de hombros; no bloquees las rodillas arriba.', alts:[
+      {name:'Prensa de piernas pies juntos', ref:'Narrow_Stance_Leg_Press', tip:'Pies juntos carga más el cuádriceps externo.'},
+      {name:'Prensa de piernas en Smith', ref:'Smith_Machine_Leg_Press', tip:'Controla la bajada, sin rebotar abajo.'}]},
+    {name:'Sentadilla hack en máquina', ref:'Hack_Squat', anim:'press', sets:4, reps:10, rest:140, tip:'Baja hasta 90° y empuja con los talones.', alts:[
+      {name:'Sentadilla hack pies juntos', ref:'Narrow_Stance_Hack_Squats', tip:'Rango controlado; rodillas siguiendo la punta del pie.'},
+      {name:'Sentadilla acostada en máquina', ref:'Lying_Machine_Squat', tip:'Espalda baja pegada al respaldo.'}]},
+    {name:'Extensión de cuádriceps', ref:'Leg_Extensions', anim:'hinge', sets:4, reps:15, rest:75, tip:'Aprieta el cuádriceps 1 segundo en la parte alta.', alts:[
+      {name:'Extensión de cuádriceps a una pierna', ref:'Single-Leg_Leg_Extension', tip:'Una pierna a la vez, mismo número de reps en cada una.'},
+      {name:'Sentadilla en máquina (silla)', ref:'Chair_Squat', tip:'Baja hasta que el muslo quede paralelo al piso.'}]},
+    {name:'Curl femoral acostado', ref:'Lying_Leg_Curls', anim:'hinge', sets:4, reps:12, rest:105, tip:'Controla la bajada, sin usar impulso de cadera.', alts:[
+      {name:'Curl femoral sentado', ref:'Seated_Leg_Curl', tip:'Espalda apoyada; lleva los talones bajo el asiento.'},
+      {name:'Curl femoral de pie', ref:'Standing_Leg_Curl', tip:'Una pierna a la vez, cadera pegada al pad.'}]},
+    {name:'Aductor en máquina', ref:'Thigh_Adductor', anim:'hinge', sets:4, reps:15, rest:75, tip:'Movimiento controlado, sin rebotes.', alts:[
+      {name:'Aducción de cadera en polea', ref:'Cable_Hip_Adduction', tip:'Tobillera en el tobillo; cruza la pierna al centro.'},
+      {name:'Aducción de cadera con banda', ref:'Band_Hip_Adductions', tip:'Resistencia constante; no dejes que la banda te jale.'}]},
+    {name:'Elevación de talones en máquina', ref:'Standing_Calf_Raises', anim:'hinge', sets:5, reps:15, rest:60, tip:'Sube todo lo posible y pausa arriba 1 segundo.', alts:[
+      {name:'Elevación de talones sentado', ref:'Seated_Calf_Raise', tip:'Trabaja más el sóleo; rango completo.'},
+      {name:'Elevación de talones en Smith', ref:'Smith_Machine_Calf_Raise', tip:'Usa un step para estirar bien abajo.'}]},
+    {name:'Zancada en máquina Smith', ref:'Barbell_Lunge', anim:'hip', sets:3, reps:12, rest:75, tip:'Rodilla alineada con el pie; no la dejes caer hacia adentro.', alts:[
+      {name:'Zancadas con mancuernas', ref:'Dumbbell_Lunges', tip:'Torso vertical, paso largo para cargar el glúteo.'},
+      {name:'Zancada hacia atrás con mancuernas', ref:'Dumbbell_Rear_Lunge', tip:'Paso atrás controlado; más amigable con la rodilla.'}]},
+  ]},
+
+  { id:'d4', tag:'Hombros', title:'Hombros y Abdomen', exercises:[
+    {name:'Press de hombros en máquina', ref:'Machine_Shoulder_Military_Press', anim:'press', sets:4, reps:10, rest:100, tip:'No arquees la espalda baja; empuja recto hacia arriba.', alts:[
+      {name:'Press de hombros en máquina (palanca)', ref:'Leverage_Shoulder_Press', tip:'Ajusta el asiento: manijas a la altura de los hombros.'},
+      {name:'Press de hombros en polea', ref:'Cable_Shoulder_Press', tip:'Tensión constante; core apretado.'}]},
+    {name:'Elevaciones laterales en máquina', ref:'Cable_Seated_Lateral_Raise', anim:'fly', sets:4, reps:12, rest:75, tip:'Codos ligeramente flexionados, sube hasta la altura del hombro.', alts:[
+      {name:'Elevaciones laterales con mancuernas', ref:'Side_Lateral_Raise', tip:'Sube como si vertieras agua; no pases del hombro.'},
+      {name:'Elevaciones laterales sentado', ref:'Seated_Side_Lateral_Raise', tip:'Sentado evitas el impulso de piernas.'}]},
+    {name:'Deltoide posterior en máquina', ref:'Reverse_Machine_Flyes', anim:'fly', sets:4, reps:15, rest:75, tip:'Abre los brazos como abrazando un árbol al revés.', alts:[
+      {name:'Aperturas posteriores en polea', ref:'Cable_Rear_Delt_Fly', tip:'Poleas cruzadas; abre sin encoger el cuello.'},
+      {name:'Remo posterior con cuerda', ref:'Cable_Rope_Rear-Delt_Rows', tip:'Codos altos, tira hacia la cara.'}]},
+    {name:'Encogimientos en máquina (trapecio)', ref:'Leverage_Shrug', anim:'hip', sets:3, reps:12, rest:75, tip:'Sube los hombros hacia las orejas, sin rodar.', alts:[
+      {name:'Encogimientos en polea', ref:'Cable_Shrugs', tip:'Pausa arriba 1 segundo en cada repetición.'},
+      {name:'Encogimientos tras espalda en Smith', ref:'Smith_Machine_Behind_the_Back_Shrug', tip:'Barra detrás del cuerpo; pecho arriba.'}]},
+    {name:'Crunch abdominal en máquina', ref:'Ab_Crunch_Machine', anim:'core', sets:4, reps:15, rest:60, tip:'Exhala al contraer; no tires del cuello con las manos.', alts:[
+      {name:'Crunch en polea', ref:'Cable_Crunch', tip:'Arrodillado; lleva los codos hacia las rodillas.'},
+      {name:'Crunch con cuerda', ref:'Rope_Crunch', tip:'Redondea la espalda alta, la cadera no se mueve.'}]},
+    {name:'Giro de torso en máquina', ref:'Cable_Russian_Twists', anim:'core', sets:3, reps:15, rest:60, tip:'Movimiento controlado, cadera fija.', alts:[
+      {name:'Pallof press con rotación', ref:'Pallof_Press_With_Rotation', tip:'Resiste la rotación; core siempre apretado.'},
+      {name:'Inclinación lateral en polea alta', ref:'One-Arm_High-Pulley_Cable_Side_Bends', tip:'Baja por el costado sin girar la cadera.'}]},
+    {name:'Elevación de piernas en silla romana', ref:'Hanging_Leg_Raise', anim:'core', sets:3, reps:15, rest:60, tip:'Sube las rodillas al pecho sin balancear el cuerpo.', alts:[
+      {name:'Elevación de rodillas en paralelas', ref:'Knee_Hip_Raise_On_Parallel_Bars', tip:'Antebrazos apoyados; sube con el abdomen.'},
+      {name:'Elevación de piernas en banco', ref:'Flat_Bench_Lying_Leg_Raise', tip:'Espalda baja pegada al banco todo el tiempo.'}]},
+    {name:'Press militar en máquina Smith', ref:'Smith_Machine_Overhead_Shoulder_Press', anim:'press', sets:3, reps:12, rest:60, tip:'Agarre a la anchura de hombros, barra frente a la cara.', alts:[
+      {name:'Elevación frontal en polea', ref:'Front_Cable_Raise', tip:'Sube hasta la altura de los ojos, sin impulso.'},
+      {name:'Remo al mentón en polea', ref:'Upright_Cable_Row', tip:'Codos por encima de las manos; no subas más del pecho.'}]},
+    {name:'Face pull en polea', ref:'Face_Pull', anim:'pull', sets:3, reps:15, rest:60, tip:'Tira hacia la cara separando bien los codos y aprieta omóplatos.', alts:[
+      {name:'Remo al cuello en polea baja', ref:'Low_Pulley_Row_To_Neck', tip:'Tira hacia la garganta con codos altos.'},
+      {name:'Lateral posterior en polea baja', ref:'Bent_Over_Low-Pulley_Side_Lateral', tip:'Inclinado al frente; abre en arco amplio.'}]},
+  ]},
+
+  { id:'d5', tag:'Glúteos', title:'Glúteos, Core y Funcional', exercises:[
+    {name:'Patada de glúteo en máquina', ref:'One-Legged_Cable_Kickback', anim:'hip', sets:4, reps:12, rest:90, tip:'Empuja con el talón y aprieta el glúteo arriba.', alts:[
+      {name:'Patada de glúteo en el piso', ref:'Glute_Kickback', tip:'En cuadrupedia; sube sin arquear la espalda baja.'},
+      {name:'Pull through en polea', ref:'Pull_Through', tip:'Bisagra de cadera; termina apretando el glúteo.'}]},
+    {name:'Hip thrust en máquina', ref:'Barbell_Hip_Thrust', anim:'hip', sets:4, reps:12, rest:100, tip:'Barbilla al pecho; empuja la cadera arriba apretando el glúteo.', alts:[
+      {name:'Puente de glúteo', ref:'Butt_Lift_Bridge', tip:'Sube hasta formar línea recta hombro-cadera-rodilla.'},
+      {name:'Puente de glúteo a una pierna', ref:'Single_Leg_Glute_Bridge', tip:'Cadera nivelada; no la dejes caer de un lado.'}]},
+    {name:'Peso muerto rumano en máquina Smith', ref:'Smith_Machine_Stiff-Legged_Deadlift', anim:'hip', sets:4, reps:10, rest:100, tip:'Baja con la espalda recta hasta sentir el estiramiento en isquios.', alts:[
+      {name:'Peso muerto rumano con barra', ref:'Romanian_Deadlift', tip:'Lleva la cadera atrás; barra pegada a la pierna.'},
+      {name:'Peso muerto piernas rígidas con mancuernas', ref:'Stiff-Legged_Dumbbell_Deadlift', tip:'Rodillas casi rectas; el movimiento es de cadera.'}]},
+    {name:'Zancada caminando en máquina Smith', ref:'Barbell_Walking_Lunge', anim:'hip', sets:3, reps:10, rest:90, tip:'Pasos controlados; la rodilla no toca el piso con fuerza.', alts:[
+      {name:'Zancada caminando sin peso', ref:'Bodyweight_Walking_Lunge', tip:'Enfócate en el equilibrio y el rango completo.'},
+      {name:'Subida al cajón con rodilla arriba', ref:'Step-up_with_Knee_Raise', tip:'Empuja con el talón de la pierna de arriba.'}]},
+    {name:'Máquina de abdominales inferiores', ref:'Cable_Reverse_Crunch', anim:'core', sets:3, reps:15, rest:75, tip:'Lleva las rodillas al pecho controlando el regreso.', alts:[
+      {name:'Elevación de cadera con rodillas flexionadas', ref:'Bent-Knee_Hip_Raise', tip:'Despega la cadera del piso usando el abdomen.'},
+      {name:'Crunch sentado en polea', ref:'Cable_Seated_Crunch', tip:'Redondea el tronco; exhala al contraer.'}]},
+    {name:'Plancha con peso en banco', ref:'Plank', anim:'core', sets:3, reps:40, timed:true, rest:60, tip:'Cuerpo en línea recta; aprieta glúteo y abdomen.', alts:[
+      {name:'Plancha lateral', ref:'Side_Bridge', tip:'Cadera arriba; mismo tiempo de cada lado.'},
+      {name:'Flexión con plancha lateral', ref:'Push_Up_to_Side_Plank', tip:'Alterna lados en cada repetición.'}]},
+    {name:'Puente de glúteo en máquina', ref:'Smith_Machine_Hip_Raise', anim:'hip', sets:3, reps:15, rest:60, tip:'Aprieta 1 segundo arriba en cada repetición.', alts:[
+      {name:'Puente de glúteo en balón', ref:'Physioball_Hip_Bridge', tip:'El balón suma inestabilidad; sube despacio.'},
+      {name:'Puente de glúteo con barra', ref:'Barbell_Glute_Bridge', tip:'Usa una colchoneta sobre la cadera para el roce.'}]},
+    {name:'Torso rotación oblicuos en máquina', ref:'Seated_Barbell_Twist', anim:'core', sets:3, reps:12, rest:60, tip:'Gira desde el torso; mantén la cadera estable.', alts:[
+      {name:'Giro de torso con disco', ref:'Plate_Twist', tip:'Brazos extendidos; gira sin mover las rodillas.'},
+      {name:'Giro ruso', ref:'Russian_Twist', tip:'Pies elevados si quieres más dificultad.'}]},
+    {name:'Abducción de cadera en polea', ref:'Thigh_Abductor', anim:'hinge', sets:3, reps:15, rest:60, tip:'Tobillera en el tobillo; eleva la pierna al lateral sin balancear el torso.', alts:[
+      {name:'Elevación lateral de pierna', ref:'Side_Leg_Raises', tip:'Acostado de lado; sube con el glúteo medio.'},
+      {name:'Extensión de cadera con banda', ref:'Hip_Extension_with_Bands', tip:'Resistencia constante; aprieta arriba.'}]},
+  ]},
+];
+
+/* =========================================================================
+   LOCALSTORAGE: progreso de series, preferencias y ciclo de rotación.
+   Guardado bajo GYM_STORAGE_KEY:
+   { warmupMin, cycle, keepAwake, bgAlarm, progress:{ d1:{"0_0":true,...} },
+     pendingAlarm:{type,endAt} }
+   Se guarda en cada cambio para que nada se pierda al recargar o cerrar.
+   ========================================================================= */
+const GYM_STORAGE_KEY = 'gymRoutineState_v2';
+
+function defaultState(){
+  return { warmupMin:12, cycle:0, keepAwake:true, bgAlarm:true, progress:{}, pendingAlarm:null };
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(GYM_STORAGE_KEY);
+    if(raw) return Object.assign(defaultState(), JSON.parse(raw));
+  }catch(e){ /* almacenamiento bloqueado o datos corruptos */ }
+  return defaultState();
+}
+function saveState(){
+  try{ localStorage.setItem(GYM_STORAGE_KEY, JSON.stringify(state)); }
+  catch(e){ /* sin espacio o modo privado: el progreso vive solo en memoria */ }
+}
+let state = loadState();
+for(const d of DAYS){ if(!state.progress[d.id]) state.progress[d.id] = {}; }
+
+/* =========================================================================
+   ROTACIÓN MENSUAL
+   Un "ciclo" cambia dos cosas a la vez:
+     · la variante de ejercicios (A / B / C) de cada casillero muscular
+     · el orden de los días, para no entrenar siempre el mismo músculo el lunes
+   Series/reps/descanso NO cambian, así la duración del día se mantiene igual.
+   ========================================================================= */
+const VARIANTS = ['A','B','C'];
+function variantIdx(){ return state.cycle % VARIANTS.length; }
+function activeExercise(ex){
+  const v = variantIdx();
+  if(v === 0) return ex;
+  const alt = ex.alts && ex.alts[v-1];
+  return alt ? Object.assign({}, ex, {name:alt.name, ref:alt.ref, tip:alt.tip}) : ex;
+}
+function orderedDays(){
+  const off = state.cycle % DAYS.length;
+  return DAYS.slice(off).concat(DAYS.slice(0, off));
+}
+function rotateCycle(){
+  const ok = confirm(
+    'Rotar la rutina del mes:\n\n' +
+    '· Cambia los ejercicios por sus variantes\n' +
+    '· Mueve los músculos a otro día de la semana\n' +
+    '· Borra las series marcadas para empezar limpio\n\n' +
+    '¿Continuar?'
+  );
+  if(!ok) return;
+  state.cycle = (state.cycle + 1) % (VARIANTS.length * DAYS.length);
+  for(const d of DAYS) state.progress[d.id] = {};
+  saveState();
+  renderAll();
+  showView('warmup');
+}
+
+/* =========================================================================
+   DURACIÓN ESTIMADA
+   Duración = calentamiento + Σ [ series × (trabajo + descanso) + transición ]
+   ========================================================================= */
+function exerciseSeconds(ex){
+  const work = ex.timed ? ex.reps : ex.reps * SEC_PER_REP;
+  return ex.sets * (work + ex.rest) + TRANSITION_SECONDS;
+}
+function dayDurationSeconds(day, warmupMin){
+  let total = warmupMin * 60;
+  for(const ex of day.exercises) total += exerciseSeconds(ex);
+  return total;
+}
+function formatDurationLong(totalSec){
+  const h = Math.floor(totalSec/3600), m = Math.round((totalSec%3600)/60);
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+}
+function fmtMMSS(sec){
+  sec = Math.max(0, Math.round(sec));
+  const m = Math.floor(sec/60), s = sec%60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+/* =========================================================================
+   AUDIO Y ALARMAS
+   Truco clave: el pitido se PROGRAMA por adelantado en el AudioContext, así
+   suena a la hora exacta aunque Android congele el JavaScript por tener la
+   pantalla apagada. Un tono casi inaudible mantiene el audio vivo mientras
+   corre el temporizador.
+   ========================================================================= */
+let audioCtx = null, keepAliveOsc = null, scheduled = [];
+
+function ensureAudio(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }catch(e){ audioCtx = null; }
+  return audioCtx;
+}
+function startAudioKeepAlive(){
+  if(!state.bgAlarm) return;
+  const ctx = ensureAudio();
+  if(!ctx || keepAliveOsc) return;
+  try{
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.frequency.value = 40;
+    g.gain.value = 0.0015;            // casi silencio: mantiene vivo el audio
+    osc.connect(g).connect(ctx.destination);
+    osc.start();
+    keepAliveOsc = osc;
+  }catch(e){}
+}
+function stopAudioKeepAlive(){
+  if(keepAliveOsc){ try{ keepAliveOsc.stop(); }catch(e){} keepAliveOsc = null; }
+}
+/* Programa la secuencia de pitidos para dentro de N segundos. */
+function scheduleAlarmSound(inSeconds){
+  const ctx = ensureAudio();
+  if(!ctx) return;
+  cancelScheduledAlarm();
+  const t0 = ctx.currentTime + Math.max(0, inSeconds);
+  for(let i=0;i<6;i++){
+    try{
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = (i % 2) ? 700 : 1050;
+      const start = t0 + i*0.32;
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.32, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(start); osc.stop(start + 0.26);
+      scheduled.push(osc);
+    }catch(e){}
+  }
+}
+function cancelScheduledAlarm(){
+  scheduled.forEach(o => { try{ o.stop(); }catch(e){} });
+  scheduled = [];
+}
+function vibrate(pattern){ try{ navigator.vibrate && navigator.vibrate(pattern); }catch(e){} }
+
+async function showAlarmNotification(title, body){
+  try{
+    if(!('Notification' in window) || Notification.permission !== 'granted') return;
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    const opts = {
+      body, icon:'icon-192.png', badge:'icon-192.png', tag:'gym-timer',
+      renotify:true, requireInteraction:true, vibrate:[400,150,400,150,600]
+    };
+    if(reg) await reg.showNotification(title, opts);
+    else new Notification(title, opts);
+  }catch(e){}
+}
+function updateNotifBtn(){
+  const btn = document.getElementById('notifBtn');
+  if(!('Notification' in window)){ btn.textContent = 'No disponible'; btn.disabled = true; return; }
+  if(Notification.permission === 'granted'){ btn.textContent = '✓ Activadas'; btn.disabled = true; }
+  else if(Notification.permission === 'denied'){ btn.textContent = 'Bloqueadas'; btn.disabled = true; }
+  else { btn.textContent = 'Activar'; btn.disabled = false; }
+}
+async function askNotifPermission(){
+  try{
+    if(!('Notification' in window)) return;
+    await Notification.requestPermission();
+    updateNotifBtn();
+  }catch(e){}
+}
+
+/* =========================================================================
+   MANTENER LA PANTALLA ENCENDIDA (Screen Wake Lock API)
+   El navegador suelta el bloqueo si la pestaña deja de verse, así que se
+   vuelve a pedir cada vez que la app regresa al frente.
+   ========================================================================= */
+let wakeLock = null;
+async function acquireWakeLock(){
+  if(!('wakeLock' in navigator) || !state.keepAwake) return;
+  if(document.visibilityState !== 'visible') return;
+  try{
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  }catch(e){ /* el navegador puede negarlo (batería baja, etc.) */ }
+}
+async function releaseWakeLock(){
+  try{ if(wakeLock) await wakeLock.release(); }catch(e){}
+  wakeLock = null;
+}
+
+/* =========================================================================
+   ALARMA PENDIENTE
+   Se guarda cuándo debe sonar cada temporizador. Si Android congeló la app y
+   el momento ya pasó, al volver se avisa igual ("terminó hace X").
+   ========================================================================= */
+function setPendingAlarm(type, endAt){
+  state.pendingAlarm = { type, endAt };
+  saveState();
+}
+function clearPendingAlarm(){
+  state.pendingAlarm = null;
+  saveState();
+}
+function checkPendingAlarm(){
+  const p = state.pendingAlarm;
+  if(!p) return;
+  const late = Date.now() - p.endAt;
+  if(late < 0) return;                       // todavía no toca
+  clearPendingAlarm();
+  const mins = Math.floor(late/60000), secs = Math.floor(late/1000) % 60;
+  const hace = mins > 0 ? `hace ${mins} min ${secs}s` : `hace ${secs}s`;
+  if(p.type === 'rest'){
+    if(restTimer.running){ stopRestInterval(); restTimer.running = false; }
+    restBar.classList.add('alert');
+    restRunning.classList.add('show');
+    restQuick.style.display = 'none';
+    restTimeLabel.textContent = '00:00';
+    restMsgLabel.textContent = `¡Descanso terminado ${hace}! Vuelve a la máquina 💪`;
+  }else{
+    warmupStateLabel.textContent = '¡Listo para entrenar!';
+    warmupGoto.classList.add('show');
+  }
+  vibrate([400,150,400,150,600]);
+}
+
+/* =========================================================================
+   RENDER
+   ========================================================================= */
+const tabsEl = document.getElementById('tabs');
+const daysContainer = document.getElementById('daysContainer');
+const RING_R = 21, RING_C = 2*Math.PI*RING_R;
+
+function animMarkup(type){
+  if(type === 'fly')  return `<div class="anim-stage"><div class="arm left"></div><div class="arm right"></div></div>`;
+  if(type === 'pull') return `<div class="anim-stage"><div class="track"></div><div class="mover"></div></div>`;
+  if(type === 'hinge')return `<div class="anim-stage"><div class="arm"></div></div>`;
+  if(type === 'hip' || type === 'core') return `<div class="anim-stage"><div class="mover"></div></div>`;
+  return `<div class="anim-stage"><div class="track"></div><div class="mover"></div></div>`;
+}
+function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+
+function exerciseCard(day, ex, idx){
+  const setsHtml = Array.from({length:ex.sets}, (_,s)=>`
+    <label class="set-check">
+      <input type="checkbox" class="set-input" data-day="${day.id}" data-ex="${idx}" data-set="${s}">
+      <span class="set-box"><span class="num">${s+1}</span><span class="chk">✓</span></span>
+    </label>`).join('');
+  const metaTxt = ex.timed
+    ? `${ex.sets} series × ${ex.reps} seg · Descanso ${ex.rest}s`
+    : `${ex.sets} series × ${ex.reps} reps · Descanso ${ex.rest}s`;
+  return `
+    <article class="ex-card" data-day="${day.id}" data-ex="${idx}">
+      <div class="ex-photo-wrap">
+        <span class="photo-badge">Foto real</span>
+        <img class="ex-photo f0" alt="${escapeAttr(ex.name)} - posición inicial" data-src="${EXDB}${ex.ref}/0.jpg" onerror="handleExPhotoError(this)">
+        <img class="ex-photo f1" alt="${escapeAttr(ex.name)} - posición final" data-src="${EXDB}${ex.ref}/1.jpg" onerror="handleExPhotoError(this)">
+        <div class="ex-fallback anim-${ex.anim}">
+          <span class="anim-badge">Técnica</span>
+          ${animMarkup(ex.anim)}
+        </div>
+      </div>
+      <div class="ex-body">
+        <h3 class="ex-name">${ex.name}</h3>
+        <p class="ex-meta">${metaTxt}</p>
+        <p class="ex-tip">💡 ${ex.tip}</p>
+        <div class="set-row">${setsHtml}</div>
+      </div>
+    </article>`;
+}
+
+/* Si una foto no carga (sin internet, GitHub caído) se muestra el diagrama. */
+function handleExPhotoError(imgEl){
+  const wrap = imgEl.closest('.ex-photo-wrap');
+  if(wrap) wrap.classList.add('broken');
+}
+/* Carga perezosa: las fotos se piden recién al abrir la pestaña de ese día. */
+function loadDayImages(dayId){
+  const list = document.getElementById('exlist-' + dayId);
+  if(!list || list.dataset.imgsLoaded) return;
+  list.dataset.imgsLoaded = '1';
+  list.querySelectorAll('.ex-photo[data-src]').forEach(img => {
+    img.src = img.dataset.src;
+    img.removeAttribute('data-src');
+  });
+}
+
+function buildDayView(day, position){
+  const wrap = document.createElement('section');
+  wrap.className = 'view';
+  wrap.id = 'view-' + day.id;
+  wrap.innerHTML = `
+    <div class="day-summary">
+      <div class="duration">
+        <b>Día ${position} · ${day.title}</b><br>
+        ⏱ Duración estimada: <b id="dur-${day.id}"></b><br>
+        <span class="variant-tag">Variante ${VARIANTS[variantIdx()]}</span> · incluye calentamiento y descansos
+      </div>
+      <div class="progress-ring-mini">
+        <svg viewBox="0 0 52 52">
+          <circle class="bg" cx="26" cy="26" r="21"></circle>
+          <circle class="fg" id="ring-${day.id}" cx="26" cy="26" r="21"></circle>
+        </svg>
+        <span id="pct-${day.id}">0%</span>
+      </div>
+    </div>
+    <div id="exlist-${day.id}"></div>
+    <button class="reset-day-btn" data-reset="${day.id}">Reiniciar progreso de hoy</button>
+  `;
+  daysContainer.appendChild(wrap);
+  const list = day.exercises.map(activeExercise);
+  document.getElementById('exlist-' + day.id).innerHTML =
+    list.map((ex,i) => exerciseCard(day, ex, i)).join('');
+  // la duración se calcula con los datos reales (no cambia entre variantes)
+  document.getElementById('dur-' + day.id).textContent =
+    formatDurationLong(dayDurationSeconds(day, state.warmupMin));
+}
+
+function refreshDayDuration(day){
+  const el = document.getElementById('dur-' + day.id);
+  if(el) el.textContent = formatDurationLong(dayDurationSeconds(day, state.warmupMin));
+}
+function refreshDayProgress(day){
+  let total = 0, done = 0;
+  day.exercises.forEach((ex,i)=>{
+    total += ex.sets;
+    for(let s=0;s<ex.sets;s++) if(state.progress[day.id][`${i}_${s}`]) done++;
+    const exDone = Array.from({length:ex.sets},(_,s)=>!!state.progress[day.id][`${i}_${s}`]).every(Boolean);
+    const card = document.querySelector(`.ex-card[data-day="${day.id}"][data-ex="${i}"]`);
+    if(card) card.classList.toggle('done', exDone);
+  });
+  const pct = total ? Math.round(done/total*100) : 0;
+  const ring = document.getElementById('ring-' + day.id);
+  const label = document.getElementById('pct-' + day.id);
+  if(ring){ ring.setAttribute('stroke-dasharray', RING_C); ring.setAttribute('stroke-dashoffset', RING_C*(1-pct/100)); }
+  if(label) label.textContent = pct + '%';
+}
+function applyStoredChecks(day){
+  day.exercises.forEach((ex,i)=>{
+    for(let s=0;s<ex.sets;s++){
+      const input = document.querySelector(`.set-input[data-day="${day.id}"][data-ex="${i}"][data-set="${s}"]`);
+      if(input) input.checked = !!state.progress[day.id][`${i}_${s}`];
+    }
+  });
+}
+
+/* Reconstruye pestañas y vistas (se llama al inicio y al rotar el ciclo). */
+function renderAll(){
+  const days = orderedDays();
+  tabsEl.innerHTML = [{id:'warmup', label:'🔥 Calentamiento'}]
+    .concat(days.map((d,i)=>({id:d.id, label:`D${i+1} · ${d.tag}`})))
+    .map(it=>`<button class="tab-btn" data-view="${it.id}">${it.label}</button>`).join('');
+  tabsEl.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> showView(btn.dataset.view));
+  });
+
+  daysContainer.innerHTML = '';
+  days.forEach((d,i)=> buildDayView(d, i+1));
+  days.forEach(d=>{ applyStoredChecks(d); refreshDayProgress(d); });
+
+  document.getElementById('cycleNum').textContent = state.cycle + 1;
+  document.getElementById('variantLetter').textContent = VARIANTS[variantIdx()];
+  const order = days.map(d=>d.tag).join(' → ');
+  document.getElementById('cycleHint').textContent = 'Orden actual: ' + order;
+}
+
+/* =========================================================================
+   NAVEGACIÓN
+   ========================================================================= */
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===id));
+  const target = document.getElementById('view-' + id);
+  if(target) target.classList.add('active');
+  const isDay = DAYS.some(d=>d.id===id);
+  document.getElementById('restBar').classList.toggle('show', isDay);
+  if(isDay) loadDayImages(id);
+  window.scrollTo({top:0, behavior:'instant'});
+}
+function suggestedDayId(){
+  const wd = new Date().getDay();            // 0=Dom … 6=Sáb
+  if(wd < 1 || wd > 5) return null;
+  const days = orderedDays();
+  return days[wd-1] ? days[wd-1].id : null;
+}
+
+/* =========================================================================
+   TEMPORIZADOR DE CALENTAMIENTO
+   Cuenta regresiva de 10/12/15 min. Usa marcas de tiempo reales (Date.now)
+   en vez de contar ticks, así no se atrasa si el navegador frena el JS.
+   ========================================================================= */
+const WARMUP_C = 2*Math.PI*96;
+const warmupRing = document.getElementById('warmupRing');
+const warmupTimeLabel = document.getElementById('warmupTimeLabel');
+const warmupStateLabel = document.getElementById('warmupStateLabel');
+const warmupStartBtn = document.getElementById('warmupStartBtn');
+const warmupGoto = document.getElementById('warmupGoto');
+
+let warmupTimer = { totalSec: state.warmupMin*60, remaining: state.warmupMin*60, running:false, endAt:null, intervalId:null };
+
+function renderWarmupRing(){
+  warmupRing.setAttribute('stroke-dasharray', WARMUP_C);
+  const pct = 1 - (warmupTimer.remaining / warmupTimer.totalSec);
+  warmupRing.setAttribute('stroke-dashoffset', WARMUP_C*(1-pct));
+  warmupTimeLabel.textContent = fmtMMSS(warmupTimer.remaining);
+}
+function setWarmupMinutes(min){
+  if(warmupTimer.running) return;
+  state.warmupMin = min;
+  warmupTimer.totalSec = min*60;
+  warmupTimer.remaining = min*60;
+  saveState();
+  document.querySelectorAll('#warmupSelect .pill-choice').forEach(p=>{
+    p.classList.toggle('selected', Number(p.dataset.min)===min);
+  });
+  renderWarmupRing();
+  DAYS.forEach(refreshDayDuration);
+}
+function stopWarmupInterval(){
+  if(warmupTimer.intervalId){ clearInterval(warmupTimer.intervalId); warmupTimer.intervalId = null; }
+}
+function warmupTick(){
+  warmupTimer.remaining = Math.max(0, (warmupTimer.endAt - Date.now())/1000);
+  renderWarmupRing();
+  if(warmupTimer.remaining <= 0){
+    stopWarmupInterval();
+    warmupTimer.running = false;
+    warmupStateLabel.textContent = '¡Listo para entrenar!';
+    warmupStartBtn.textContent = 'Iniciar';
+    clearPendingAlarm();
+    stopAudioKeepAlive();
+    vibrate([400,150,400,150,600]);
+    showAlarmNotification('¡Calentamiento terminado! 🔥', 'Hora de ir a las pesas.');
+    warmupGoto.classList.add('show');
+  }
+}
+function startWarmup(){
+  if(warmupTimer.running){
+    stopWarmupInterval();
+    warmupTimer.running = false;
+    cancelScheduledAlarm();
+    clearPendingAlarm();
+    stopAudioKeepAlive();
+    warmupStartBtn.textContent = 'Continuar';
+    warmupStateLabel.textContent = 'En pausa';
+    return;
+  }
+  ensureAudio();                     // se habilita el audio con el toque del usuario
+  askNotifPermission();
+  warmupTimer.running = true;
+  warmupStartBtn.textContent = 'Pausar';
+  warmupStateLabel.textContent = 'Calentando…';
+  warmupGoto.classList.remove('show');
+  warmupTimer.endAt = Date.now() + warmupTimer.remaining*1000;
+  warmupTimer.intervalId = setInterval(warmupTick, 250);
+  scheduleAlarmSound(warmupTimer.remaining);
+  setPendingAlarm('warmup', warmupTimer.endAt);
+  startAudioKeepAlive();
+  acquireWakeLock();
+}
+function resetWarmup(){
+  stopWarmupInterval();
+  warmupTimer.running = false;
+  warmupTimer.remaining = warmupTimer.totalSec;
+  cancelScheduledAlarm();
+  clearPendingAlarm();
+  stopAudioKeepAlive();
+  warmupStartBtn.textContent = 'Iniciar';
+  warmupStateLabel.textContent = 'Listo para iniciar';
+  warmupGoto.classList.remove('show');
+  renderWarmupRing();
+}
+
+/* =========================================================================
+   TEMPORIZADOR DE DESCANSO (flotante, dentro de la rutina)
+   Botones de 45s / 1min / 2min. El pitido queda programado apenas inicia,
+   por eso suena aunque bloquees el celular durante el descanso.
+   ========================================================================= */
+const restBar = document.getElementById('restBar');
+const restQuick = document.getElementById('restQuick');
+const restRunning = document.getElementById('restRunning');
+const restTimeLabel = document.getElementById('restTimeLabel');
+const restMsgLabel = document.getElementById('restMsgLabel');
+
+let restTimer = { endAt:null, intervalId:null, running:false };
+
+function stopRestInterval(){
+  if(restTimer.intervalId){ clearInterval(restTimer.intervalId); restTimer.intervalId = null; }
+}
+function startRest(seconds){
+  ensureAudio();
+  askNotifPermission();
+  stopRestInterval();
+  restBar.classList.remove('alert');
+  restQuick.style.display = 'none';
+  restRunning.classList.add('show');
+  restMsgLabel.textContent = 'Descansando… vuelve a la máquina cuando termine.';
+  restTimer.endAt = Date.now() + seconds*1000;
+  restTimer.running = true;
+  scheduleAlarmSound(seconds);
+  setPendingAlarm('rest', restTimer.endAt);
+  startAudioKeepAlive();
+  acquireWakeLock();
+  restTick();
+  restTimer.intervalId = setInterval(restTick, 250);
+}
+function restTick(){
+  const remaining = Math.max(0, (restTimer.endAt - Date.now())/1000);
+  restTimeLabel.textContent = fmtMMSS(remaining);
+  if(remaining <= 0){
+    stopRestInterval();
+    restTimer.running = false;
+    clearPendingAlarm();
+    stopAudioKeepAlive();
+    restBar.classList.add('alert');
+    restMsgLabel.textContent = '¡Descanso terminado! Vuelve a la máquina 💪';
+    vibrate([400,150,400,150,600]);
+    showAlarmNotification('¡Descanso terminado! 💪', 'Vuelve a la máquina.');
+  }
+}
+function cancelRest(){
+  stopRestInterval();
+  restTimer.running = false;
+  cancelScheduledAlarm();
+  clearPendingAlarm();
+  stopAudioKeepAlive();
+  restBar.classList.remove('alert');
+  restQuick.style.display = 'flex';
+  restRunning.classList.remove('show');
+}
+
+/* =========================================================================
+   INSTALACIÓN DE LA APP (PWA)
+   ========================================================================= */
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  document.getElementById('installBtn').classList.add('show');
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstall = null;
+  document.getElementById('installBtn').classList.remove('show');
+});
+
+/* =========================================================================
+   INICIALIZACIÓN
+   ========================================================================= */
+function init(){
+  renderAll();
+  setWarmupMinutes(state.warmupMin || 12);
+  renderWarmupRing();
+
+  document.getElementById('keepAwakeToggle').checked = !!state.keepAwake;
+  document.getElementById('bgAlarmToggle').checked = !!state.bgAlarm;
+  updateNotifBtn();
+
+  document.getElementById('keepAwakeToggle').addEventListener('change', e=>{
+    state.keepAwake = e.target.checked; saveState();
+    if(state.keepAwake) acquireWakeLock(); else releaseWakeLock();
+  });
+  document.getElementById('bgAlarmToggle').addEventListener('change', e=>{
+    state.bgAlarm = e.target.checked; saveState();
+    if(!state.bgAlarm) stopAudioKeepAlive();
+  });
+  document.getElementById('notifBtn').addEventListener('click', askNotifPermission);
+  document.getElementById('rotateBtn').addEventListener('click', rotateCycle);
+
+  document.getElementById('installBtn').addEventListener('click', async ()=>{
+    if(!deferredInstall) return;
+    deferredInstall.prompt();
+    await deferredInstall.userChoice;
+    deferredInstall = null;
+    document.getElementById('installBtn').classList.remove('show');
+  });
+
+  document.getElementById('warmupSelect').addEventListener('click', e=>{
+    const btn = e.target.closest('.pill-choice');
+    if(btn) setWarmupMinutes(Number(btn.dataset.min));
+  });
+  warmupStartBtn.addEventListener('click', startWarmup);
+  document.getElementById('warmupResetBtn').addEventListener('click', resetWarmup);
+  document.getElementById('warmupGotoBtn').addEventListener('click', ()=>{
+    showView(suggestedDayId() || orderedDays()[0].id);
+  });
+
+  // checkboxes de series (evento delegado)
+  document.addEventListener('change', e=>{
+    if(!e.target.classList.contains('set-input')) return;
+    const { day, ex, set } = e.target.dataset;
+    state.progress[day][`${ex}_${set}`] = e.target.checked;
+    saveState();
+    refreshDayProgress(DAYS.find(d=>d.id===day));
+  });
+
+  daysContainer.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-reset]');
+    if(!btn) return;
+    const dayId = btn.dataset.reset;
+    state.progress[dayId] = {};
+    saveState();
+    const dayObj = DAYS.find(d=>d.id===dayId);
+    applyStoredChecks(dayObj);
+    refreshDayProgress(dayObj);
+  });
+
+  restQuick.addEventListener('click', e=>{
+    const btn = e.target.closest('button[data-sec]');
+    if(btn) startRest(Number(btn.dataset.sec));
+  });
+  document.getElementById('restCancelBtn').addEventListener('click', cancelRest);
+  restBar.addEventListener('click', e=>{
+    if(restBar.classList.contains('alert') && e.target.id !== 'restCancelBtn') cancelRest();
+  });
+
+  // al volver a la app: recuperar el bloqueo de pantalla y avisar si la
+  // alarma sonó mientras estaba en segundo plano
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible'){
+      acquireWakeLock();
+      ensureAudio();
+      checkPendingAlarm();
+      if(restTimer.running) restTick();
+      if(warmupTimer.running) warmupTick();
+    }
+  });
+
+  checkPendingAlarm();
+  showView('warmup');
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
+}
+
+init();
+</script>
+</body>
+</html>
