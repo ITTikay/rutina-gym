@@ -11,7 +11,9 @@ App web (PWA) de rutina de gimnasio de 5 días, pensada para el celular.
 - **Pantalla siempre encendida** mientras entrenas (Screen Wake Lock API).
 - **Seguimiento de series** con checkboxes, guardado en `localStorage`.
 - **Registro de peso por ejercicio** (kg o lb) con botones −/+ y comparación contra la semana anterior (▲ subiste / ▼ bajaste / = igual).
-- **Ventana antes de reiniciar el día**: muestra el peso de la semana anterior vs. el de esta semana para cada ejercicio. Reiniciar solo desmarca las series; los pesos se conservan (~6 meses de historial por ejercicio).
+- **Meta semanal (sobrecarga progresiva) con 75% mínimo de cumplimiento**: la meta es subir un escalón (2.5 kg / 5 lb) si la semana anterior (1) hiciste al menos el **75% de la rutina del día** — así puedes saltar ejercicios cuando en tu gimnasio no hay la máquina — y (2) de ese ejercicio hiciste al menos el **75% de sus series** (3 de 4, 4 de 5, 3 de 3). Si no, la meta es repetir el peso. La meta aparece en gris dentro del campo vacío y al tocarlo se copia. Si repites el peso cuando tocaba subir, sale un aviso amarillo.
+- **Indicador del 75% durante el entrenamiento**: el anillo de progreso del día está naranja y se pone verde al llegar al 75%, con el mensaje "Llegaste al 75%: la próxima semana toca subir peso".
+- **Reporte de pesos de la semana anterior**: se abre solo la primera vez que entras a cada día en la semana (y con el botón 📋). Muestra por ejercicio: semana anterior, meta de hoy y lo que llevas esta semana, con un resumen de cuántos subiste / igual / bajaste. Desde ahí también puedes reiniciar las series viejas. Reiniciar solo desmarca las series; los pesos se conservan (~6 meses de historial por ejercicio).
 - **Rotación mensual**: un botón cambia los ejercicios por sus variantes (A/B/C) y mueve los músculos a otro día de la semana.
 - **Funciona sin internet**: el service worker guarda la app y las fotos que ya viste.
 
