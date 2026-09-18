@@ -226,6 +226,56 @@
   .set-input:checked + .set-box .num{opacity:0; transform:scale(.4);}
   .set-input:checked + .set-box .chk{opacity:1; transform:scale(1);}
 
+  /* ---------- Registro de peso por ejercicio ---------- */
+  .weight-row{display:flex; align-items:center; gap:8px; margin-top:12px;}
+  .w-label{font-size:11px; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; margin-right:2px;}
+  .w-step{
+    width:40px; height:40px; flex:0 0 auto; border-radius:10px; border:1px solid var(--border);
+    background:var(--card-alt); color:var(--text); font-size:20px; font-weight:800; line-height:1;
+  }
+  .w-step:active{background:var(--accent-dim); border-color:var(--accent);}
+  .w-input{
+    width:76px; height:40px; flex:0 0 auto; border-radius:10px; border:2px solid var(--border);
+    background:var(--bg); color:var(--text); font-size:17px; font-weight:800; text-align:center;
+    font-family:inherit; font-variant-numeric:tabular-nums; padding:0 4px;
+  }
+  .w-input:focus{outline:none; border-color:var(--accent2);}
+  .w-input::placeholder{color:var(--text-faint); font-weight:600;}
+  .w-unit{font-size:13px; font-weight:700; color:var(--text-dim);}
+  .w-prev{font-size:11.5px; color:var(--text-faint); margin-top:6px; line-height:1.45;}
+  .w-prev b{color:var(--text-dim);}
+  .up{color:var(--success); font-weight:800;}
+  .down{color:var(--danger); font-weight:800;}
+  .same{color:var(--text-dim); font-weight:800;}
+
+  /* selector kg / lb */
+  .seg{display:flex; flex:0 0 auto; background:var(--card-alt); border:1px solid var(--border); border-radius:999px; padding:3px;}
+  .seg button{border:none; background:transparent; color:var(--text-dim); font-weight:800; font-size:12px; padding:6px 13px; border-radius:999px;}
+  .seg button.on{background:var(--accent2); color:#04262b;}
+
+  /* ---------- Ventana: peso semana anterior vs esta semana ---------- */
+  .modal-backdrop{position:fixed; inset:0; z-index:50; background:#000000a6; display:flex; align-items:flex-end; justify-content:center;}
+  .modal-backdrop[hidden]{display:none;}
+  .modal-sheet{
+    width:100%; max-width:560px; max-height:86vh; overflow-y:auto; background:var(--bg-elevated);
+    border:1px solid var(--border); border-bottom:none; border-radius:22px 22px 0 0;
+    padding:20px 16px calc(18px + var(--safe-bottom)); animation:sheetUp .22s ease;
+  }
+  @keyframes sheetUp{from{transform:translateY(40px); opacity:0;} to{transform:none; opacity:1;}}
+  .modal-sheet h3{font-size:17px; font-weight:800; line-height:1.3;}
+  .modal-sub{color:var(--text-dim); font-size:12.5px; margin-top:5px; line-height:1.45;}
+  .cmp-row{background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:11px 12px; margin-top:10px;}
+  .cmp-name{font-size:13.5px; font-weight:700; line-height:1.3;}
+  .cmp-vals{display:grid; grid-template-columns:1fr 1fr 66px; gap:8px; align-items:start; margin-top:7px;}
+  .cmp-cell{font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.4px; line-height:1.3;}
+  .cmp-cell b{display:block; font-size:16px; color:var(--text); text-transform:none; letter-spacing:0; margin-top:2px;}
+  .cmp-cell small{display:block; font-size:10.5px; text-transform:none; letter-spacing:0;}
+  .cmp-diff{font-size:13px; font-weight:800; white-space:nowrap; padding-top:16px; text-align:right;}
+  .modal-empty{color:var(--text-dim); font-size:13px; margin-top:14px; line-height:1.55;}
+  .modal-actions{display:flex; gap:10px; margin-top:18px;}
+  .modal-actions .btn-big{flex:1; min-width:0;}
+  body.modal-open{overflow:hidden;}
+
   /* ---------- Temporizador de descanso ---------- */
   .rest-bar{
     position:fixed; left:0; right:0; bottom:0; z-index:30;
@@ -298,6 +348,17 @@
         <button class="mini-btn" id="notifBtn">Activar</button>
       </div>
 
+      <div class="set-line">
+        <div class="set-label">
+          Unidad de peso
+          <small>Si cambias la unidad, los pesos guardados se convierten solos.</small>
+        </div>
+        <div class="seg" id="unitSeg">
+          <button type="button" data-unit="kg">kg</button>
+          <button type="button" data-unit="lb">lb</button>
+        </div>
+      </div>
+
       <div class="cycle-box">
         <div class="cycle-info">
           Ciclo <b id="cycleNum">1</b> · Variante <b id="variantLetter">A</b>
@@ -366,6 +427,20 @@
     <div class="rest-time" id="restTimeLabel">00:45</div>
     <div class="rest-msg" id="restMsgLabel">Descansando… vuelve a la máquina cuando termine.</div>
     <button class="btn-ghost" id="restCancelBtn">Cancelar</button>
+  </div>
+</div>
+
+<!-- ===== Ventana: pesos de la semana anterior (antes de reiniciar el día) ===== -->
+<div class="modal-backdrop" id="weightModal" hidden>
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h3 id="modalTitle">Antes de reiniciar</h3>
+    <p class="modal-sub">Compara el peso de la semana anterior con el de esta semana.
+      Tus pesos quedan guardados: solo se desmarcan las series.</p>
+    <div id="modalBody"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-big btn-ghost" id="modalCancel">Cancelar</button>
+      <button type="button" class="btn-big btn-primary" id="modalConfirm">Reiniciar series</button>
+    </div>
   </div>
 </div>
 
@@ -528,14 +603,15 @@ const DAYS = [
 /* =========================================================================
    LOCALSTORAGE: progreso de series, preferencias y ciclo de rotación.
    Guardado bajo GYM_STORAGE_KEY:
-   { warmupMin, cycle, keepAwake, bgAlarm, progress:{ d1:{"0_0":true,...} },
-     pendingAlarm:{type,endAt} }
+   { warmupMin, cycle, keepAwake, bgAlarm, unit, progress:{ d1:{"0_0":true,...} },
+     weightLog:{ "Leg_Press":{ "2026-09-14":90, ... } }, pendingAlarm:{type,endAt} }
    Se guarda en cada cambio para que nada se pierda al recargar o cerrar.
    ========================================================================= */
 const GYM_STORAGE_KEY = 'gymRoutineState_v2';
 
 function defaultState(){
-  return { warmupMin:12, cycle:0, keepAwake:true, bgAlarm:true, progress:{}, pendingAlarm:null };
+  return { warmupMin:12, cycle:0, keepAwake:true, bgAlarm:true, unit:'kg',
+           progress:{}, weightLog:{}, pendingAlarm:null };
 }
 function loadState(){
   try{
@@ -584,6 +660,179 @@ function rotateCycle(){
   saveState();
   renderAll();
   showView('warmup');
+}
+
+/* =========================================================================
+   REGISTRO DE PESOS
+   · Se guarda por ejercicio (su "ref", que no cambia al rotar) y por semana.
+   · La semana se identifica por la fecha de su lunes: "2026-09-14".
+   · Internamente todo va en kg; si eliges lb solo se convierte lo que ves.
+   · "Semana anterior" = el último registro de una semana ya pasada
+     (si faltaste una semana, muestra el más reciente con su fecha).
+   ========================================================================= */
+const LB_PER_KG = 2.20462;
+const MAX_WEEKS_KEPT = 26;          // ~6 meses de historial por ejercicio
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+function weekKey(date = new Date()){
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));        // retrocede al lunes
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtWeek(key){
+  const [, m, d] = key.split('-').map(Number);
+  return `${d} ${MESES[m-1]}`;
+}
+function roundHalf(n){ return Math.round(n * 2) / 2; }
+function numStr(n){ return Number.isInteger(n) ? String(n) : n.toFixed(1); }
+function toDisplay(kg){ return state.unit === 'lb' ? kg * LB_PER_KG : kg; }
+function toKg(val){ return state.unit === 'lb' ? val / LB_PER_KG : val; }
+function displayNum(kg){ return roundHalf(toDisplay(kg)); }
+function fmtW(kg){ return `${numStr(displayNum(kg))} ${state.unit}`; }
+
+function weightThisWeek(ref){
+  const log = state.weightLog[ref];
+  return log ? log[weekKey()] : undefined;
+}
+function weightPrevWeek(ref){
+  const log = state.weightLog[ref];
+  if(!log) return null;
+  const cur = weekKey();
+  const past = Object.keys(log).filter(k => k < cur).sort();
+  if(!past.length) return null;
+  const k = past[past.length - 1];
+  return { week:k, kg:log[k] };
+}
+/* Guarda (o borra, si val es null) el peso de esta semana para un ejercicio. */
+function setWeight(ref, displayVal){
+  const log = state.weightLog[ref] || (state.weightLog[ref] = {});
+  const cur = weekKey();
+  if(displayVal === null) delete log[cur];
+  else log[cur] = toKg(displayVal);
+  const keys = Object.keys(log).sort();
+  while(keys.length > MAX_WEEKS_KEPT) delete log[keys.shift()];
+  if(!Object.keys(log).length) delete state.weightLog[ref];
+  saveState();
+}
+
+function prevLineHtml(prev, curKg){
+  if(!prev){
+    return curKg !== undefined
+      ? 'Primera semana registrada 💪'
+      : 'Sin registro anterior · anota el peso que uses';
+  }
+  let txt = `Semana anterior (${fmtWeek(prev.week)}): <b>${fmtW(prev.kg)}</b>`;
+  if(curKg !== undefined){
+    const diff = displayNum(curKg) - displayNum(prev.kg);
+    if(diff > 0)      txt += ` · <span class="up">▲ +${numStr(diff)} ${state.unit}</span>`;
+    else if(diff < 0) txt += ` · <span class="down">▼ −${numStr(-diff)} ${state.unit}</span>`;
+    else              txt += ` · <span class="same">= igual</span>`;
+  }
+  return txt;
+}
+
+/* Rellena campo, unidad y línea de "semana anterior" de las tarjetas.
+   Sin ref, actualiza todas (al renderizar o al cambiar kg/lb). */
+function refreshWeightUI(ref){
+  const sel = ref ? `.ex-card[data-ref="${CSS.escape(ref)}"]` : '.ex-card';
+  document.querySelectorAll(sel).forEach(card => {
+    const r = card.dataset.ref;
+    const input = card.querySelector('.w-input');
+    const cur = weightThisWeek(r);
+    const prev = weightPrevWeek(r);
+    if(document.activeElement !== input){
+      input.value = cur !== undefined ? numStr(displayNum(cur)) : '';
+    }
+    input.placeholder = prev ? numStr(displayNum(prev.kg)) : '—';
+    card.querySelector('.w-unit').textContent = state.unit;
+    card.querySelector('.w-prev').innerHTML = prevLineHtml(prev, cur);
+  });
+}
+
+/* Lee lo que escribiste. Acepta coma o punto decimal. */
+function commitWeightInput(input){
+  const ref = input.closest('.ex-card').dataset.ref;
+  const raw = input.value.trim().replace(',', '.');
+  if(raw === ''){
+    if(weightThisWeek(ref) !== undefined) setWeight(ref, null);
+  }else{
+    const val = parseFloat(raw);
+    if(isNaN(val) || val < 0 || val > 999) return;       // valor inválido: se ignora
+    const cur = weightThisWeek(ref);
+    if(cur === undefined || displayNum(cur) !== roundHalf(val)) setWeight(ref, roundHalf(val));
+  }
+  refreshWeightUI(ref);
+}
+
+/* Botones − / +: 2.5 kg o 5 lb. Si el campo está vacío parte del peso anterior. */
+function stepWeight(card, dir){
+  const ref = card.dataset.ref;
+  const input = card.querySelector('.w-input');
+  const step = state.unit === 'lb' ? 5 : 2.5;
+  const typed = parseFloat(input.value.replace(',', '.'));
+  const prev = parseFloat(input.placeholder);
+  const base = !isNaN(typed) ? typed : (!isNaN(prev) ? prev : 0);
+  setWeight(ref, Math.max(0, roundHalf(base + dir * step)));
+  refreshWeightUI(ref);
+}
+
+function updateUnitSeg(){
+  document.querySelectorAll('#unitSeg button').forEach(b =>
+    b.classList.toggle('on', b.dataset.unit === state.unit));
+}
+
+/* =========================================================================
+   VENTANA "ANTES DE REINICIAR"
+   Muestra por ejercicio: peso de la semana anterior, el de esta semana y
+   si subiste o bajaste. Al confirmar solo se desmarcan las series.
+   ========================================================================= */
+const weightModal = document.getElementById('weightModal');
+let modalDayId = null;
+
+function compareRowHtml(ex){
+  const prev = weightPrevWeek(ex.ref), cur = weightThisWeek(ex.ref);
+  let diff = '<div class="cmp-diff"></div>';
+  if(prev && cur !== undefined){
+    const d = displayNum(cur) - displayNum(prev.kg);
+    diff = d > 0 ? `<div class="cmp-diff up">▲ +${numStr(d)}</div>`
+         : d < 0 ? `<div class="cmp-diff down">▼ −${numStr(-d)}</div>`
+         :         `<div class="cmp-diff same">= igual</div>`;
+  }
+  return `
+    <div class="cmp-row">
+      <div class="cmp-name">${ex.name}</div>
+      <div class="cmp-vals">
+        <div class="cmp-cell">Semana anterior<b>${prev ? fmtW(prev.kg) : '—'}</b>${prev ? `<small>sem. del ${fmtWeek(prev.week)}</small>` : ''}</div>
+        <div class="cmp-cell">Esta semana<b>${cur !== undefined ? fmtW(cur) : '—'}</b></div>
+        ${diff}
+      </div>
+    </div>`;
+}
+function openResetModal(dayId){
+  const day = DAYS.find(d => d.id === dayId);
+  const pos = orderedDays().indexOf(day) + 1;
+  const list = day.exercises.map(activeExercise);
+  const hasAny = list.some(ex => weightPrevWeek(ex.ref) || weightThisWeek(ex.ref) !== undefined);
+  document.getElementById('modalTitle').textContent = `Antes de reiniciar · Día ${pos} · ${day.title}`;
+  document.getElementById('modalBody').innerHTML = hasAny
+    ? list.map(compareRowHtml).join('')
+    : `<p class="modal-empty">Todavía no anotaste pesos en este día.<br>
+       Escríbelos en el campo <b>Peso</b> de cada ejercicio y la próxima semana los verás aquí.</p>`;
+  modalDayId = dayId;
+  weightModal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+function closeModal(){
+  weightModal.hidden = true;
+  document.body.classList.remove('modal-open');
+  modalDayId = null;
+}
+function resetDay(dayId){
+  state.progress[dayId] = {};
+  saveState();
+  const dayObj = DAYS.find(d => d.id === dayId);
+  applyStoredChecks(dayObj);
+  refreshDayProgress(dayObj);
 }
 
 /* =========================================================================
@@ -775,7 +1024,7 @@ function exerciseCard(day, ex, idx){
     ? `${ex.sets} series × ${ex.reps} seg · Descanso ${ex.rest}s`
     : `${ex.sets} series × ${ex.reps} reps · Descanso ${ex.rest}s`;
   return `
-    <article class="ex-card" data-day="${day.id}" data-ex="${idx}">
+    <article class="ex-card" data-day="${day.id}" data-ex="${idx}" data-ref="${ex.ref}">
       <div class="ex-photo-wrap">
         <span class="photo-badge">Foto real</span>
         <img class="ex-photo f0" alt="${escapeAttr(ex.name)} - posición inicial" data-src="${EXDB}${ex.ref}/0.jpg" onerror="handleExPhotoError(this)">
@@ -789,6 +1038,15 @@ function exerciseCard(day, ex, idx){
         <h3 class="ex-name">${ex.name}</h3>
         <p class="ex-meta">${metaTxt}</p>
         <p class="ex-tip">💡 ${ex.tip}</p>
+        <div class="weight-row">
+          <span class="w-label">Peso</span>
+          <button type="button" class="w-step" data-dir="-1" aria-label="Bajar peso">−</button>
+          <input class="w-input" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off"
+                 aria-label="Peso usado en ${escapeAttr(ex.name)}">
+          <button type="button" class="w-step" data-dir="1" aria-label="Subir peso">+</button>
+          <span class="w-unit">${state.unit}</span>
+        </div>
+        <p class="w-prev"></p>
         <div class="set-row">${setsHtml}</div>
       </div>
     </article>`;
@@ -882,6 +1140,8 @@ function renderAll(){
   daysContainer.innerHTML = '';
   days.forEach((d,i)=> buildDayView(d, i+1));
   days.forEach(d=>{ applyStoredChecks(d); refreshDayProgress(d); });
+  refreshWeightUI();
+  updateUnitSeg();
 
   document.getElementById('cycleNum').textContent = state.cycle + 1;
   document.getElementById('variantLetter').textContent = VARIANTS[variantIdx()];
@@ -1118,15 +1378,55 @@ function init(){
     refreshDayProgress(DAYS.find(d=>d.id===day));
   });
 
+  // botón "Reiniciar progreso de hoy" → primero la ventana de pesos
+  // botones − / + del peso
   daysContainer.addEventListener('click', e=>{
-    const btn = e.target.closest('[data-reset]');
-    if(!btn) return;
-    const dayId = btn.dataset.reset;
-    state.progress[dayId] = {};
+    const resetBtn = e.target.closest('[data-reset]');
+    if(resetBtn){ openResetModal(resetBtn.dataset.reset); return; }
+    const stepBtn = e.target.closest('.w-step');
+    if(stepBtn) stepWeight(stepBtn.closest('.ex-card'), Number(stepBtn.dataset.dir));
+  });
+
+  // campo de peso: al tocarlo vacío copia el peso anterior; guarda mientras escribes
+  daysContainer.addEventListener('focusin', e=>{
+    if(!e.target.classList.contains('w-input')) return;
+    const input = e.target;
+    if(input.value === '' && !isNaN(parseFloat(input.placeholder))){
+      input.value = input.placeholder;
+      commitWeightInput(input);
+    }
+    setTimeout(()=> input.select(), 0);
+  });
+  daysContainer.addEventListener('input', e=>{
+    if(e.target.classList.contains('w-input')) commitWeightInput(e.target);
+  });
+  daysContainer.addEventListener('focusout', e=>{
+    if(!e.target.classList.contains('w-input')) return;
+    const ref = e.target.closest('.ex-card').dataset.ref;
+    commitWeightInput(e.target);
+    setTimeout(()=> refreshWeightUI(ref), 0);   // ya sin foco: muestra "57.5" en vez de "57,5"
+  });
+  daysContainer.addEventListener('keydown', e=>{
+    if(e.target.classList.contains('w-input') && e.key === 'Enter') e.target.blur();
+  });
+
+  document.getElementById('unitSeg').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-unit]');
+    if(!b || b.dataset.unit === state.unit) return;
+    state.unit = b.dataset.unit;
     saveState();
-    const dayObj = DAYS.find(d=>d.id===dayId);
-    applyStoredChecks(dayObj);
-    refreshDayProgress(dayObj);
+    updateUnitSeg();
+    refreshWeightUI();
+  });
+
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalConfirm').addEventListener('click', ()=>{
+    if(modalDayId) resetDay(modalDayId);
+    closeModal();
+  });
+  weightModal.addEventListener('click', e=>{ if(e.target === weightModal) closeModal(); });
+  document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape' && !weightModal.hidden) closeModal();
   });
 
   restQuick.addEventListener('click', e=>{

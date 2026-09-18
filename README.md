@@ -10,6 +10,8 @@ App web (PWA) de rutina de gimnasio de 5 días, pensada para el celular.
 - **Alarma con pantalla apagada**: el pitido se programa por adelantado en el AudioContext, así suena aunque el celular esté bloqueado.
 - **Pantalla siempre encendida** mientras entrenas (Screen Wake Lock API).
 - **Seguimiento de series** con checkboxes, guardado en `localStorage`.
+- **Registro de peso por ejercicio** (kg o lb) con botones −/+ y comparación contra la semana anterior (▲ subiste / ▼ bajaste / = igual).
+- **Ventana antes de reiniciar el día**: muestra el peso de la semana anterior vs. el de esta semana para cada ejercicio. Reiniciar solo desmarca las series; los pesos se conservan (~6 meses de historial por ejercicio).
 - **Rotación mensual**: un botón cambia los ejercicios por sus variantes (A/B/C) y mueve los músculos a otro día de la semana.
 - **Funciona sin internet**: el service worker guarda la app y las fotos que ya viste.
 
@@ -41,3 +43,14 @@ El botón **🔄 Rotar** avanza un ciclo. Cada ciclo:
 
 Las series, repeticiones y descansos **no cambian** al rotar, por eso la duración
 estimada de cada día se mantiene igual.
+
+El historial de pesos va ligado a cada ejercicio (no a su posición), así que al
+rotar las variantes nuevas empiezan sin peso y, cuando vuelve una variante, su
+historial reaparece.
+
+## Actualizar la app publicada
+
+Sube los archivos modificados al repo (`Add file → Upload files`, mismo nombre
+los reemplaza). La app instalada en el celular — sea desde Chrome o el APK de
+PWABuilder — carga desde GitHub Pages, así que se actualiza sola: cierra la app
+por completo y vuelve a abrirla con internet. **No hace falta generar otro APK.**
