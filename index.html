@@ -280,6 +280,29 @@
   .cmp-banner{margin-top:12px; padding:10px 12px; border-radius:var(--radius-sm); font-size:12.5px; line-height:1.45; border:1px solid;}
   .cmp-banner.good{background:var(--success-dim); color:var(--success); border-color:var(--success);}
   .cmp-banner.low{background:#fbbf2420; color:#fbbf24; border-color:#fbbf24;}
+  .cmp-banner.plan{background:#22d3ee14; color:var(--accent2); border-color:#22d3ee66;}
+  .info{color:var(--accent2); font-weight:800;}
+
+  /* plan de progresión en Ajustes */
+  .set-line.stack{flex-direction:column; align-items:stretch; gap:9px;}
+  .plan-seg button{flex:1;}
+
+  /* ---------- Historial mensual ---------- */
+  .hist-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:8px 0 12px;}
+  .hist-head .mini-btn{padding:9px 15px; font-size:14px;}
+  .hist-head .mini-btn:disabled{opacity:.3;}
+  .hist-title{flex:1; text-align:center; font-size:17px; font-weight:800;}
+  .hist-hint{color:var(--text-faint); font-size:11.5px; margin:8px 2px 0; line-height:1.45;}
+  .hist-day{font-size:12px; font-weight:800; color:var(--accent); text-transform:uppercase; letter-spacing:.6px; margin:18px 2px 8px;}
+  .hist-ex{background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; margin-bottom:10px;}
+  .hist-name{font-size:13.5px; font-weight:700; line-height:1.3;}
+  .hist-weeks{display:flex; gap:6px; margin-top:9px;}
+  .hist-chip{flex:1; min-width:0; background:var(--card-alt); border:1px solid var(--border); border-radius:10px; padding:6px 2px; text-align:center;}
+  .hist-chip small{display:block; font-size:10px; color:var(--text-faint);}
+  .hist-chip b{display:block; font-size:14px; margin-top:1px;}
+  .hist-chip.empty b{color:var(--text-faint); font-weight:600;}
+  .hist-line{font-size:12px; color:var(--text-dim); margin-top:7px; line-height:1.45;}
+  .hist-line b{color:var(--text);}
   .cmp-summary{display:flex; flex-wrap:wrap; gap:6px 12px; font-size:12.5px; color:var(--text-dim); margin-top:12px;
     background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px;}
   .cmp-cell{font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.4px; line-height:1.3;}
@@ -373,9 +396,22 @@
         </div>
       </div>
 
+      <div class="set-line stack">
+        <div class="set-label">
+          Plan de progresión: 2 semanas mantener · 2 semanas subir
+          <small id="planHint"></small>
+        </div>
+        <div class="seg plan-seg" id="planSeg">
+          <button type="button" data-pos="0">S1 =</button>
+          <button type="button" data-pos="1">S2 =</button>
+          <button type="button" data-pos="2">S3 ▲</button>
+          <button type="button" data-pos="3">S4 ▲</button>
+        </div>
+      </div>
+
       <div class="cycle-box">
         <div class="cycle-info">
-          Ciclo <b id="cycleNum">1</b> · Variante <b id="variantLetter">A</b>
+          Rotación <b id="cycleNum">1</b> · Variante <b id="variantLetter">A</b>
           <small id="cycleHint">Rota cada mes: cambia los ejercicios y mueve los músculos de día.</small>
         </div>
         <button class="mini-btn warn" id="rotateBtn">🔄 Rotar</button>
@@ -425,6 +461,16 @@
       Fotos de ejercicios: free-exercise-db (dominio público).<br>
       Se guardan solas la primera vez que las ves, para funcionar sin señal.
     </footer>
+  </section>
+
+  <!-- ===== Vista: Historial mensual de pesos ===== -->
+  <section class="view" id="view-history">
+    <div class="hist-head">
+      <button type="button" class="mini-btn" id="histPrev" aria-label="Mes anterior">◀</button>
+      <div class="hist-title" id="histTitle"></div>
+      <button type="button" class="mini-btn" id="histNext" aria-label="Mes siguiente">▶</button>
+    </div>
+    <div id="histBody"></div>
   </section>
 
   <div id="daysContainer"></div>
@@ -626,7 +672,7 @@ const GYM_STORAGE_KEY = 'gymRoutineState_v2';
 
 function defaultState(){
   return { warmupMin:12, cycle:0, keepAwake:true, bgAlarm:true, unit:'kg',
-           progress:{}, weightLog:{}, doneLog:{}, reportSeen:{}, pendingAlarm:null };
+           progress:{}, weightLog:{}, doneLog:{}, reportSeen:{}, planStart:null, pendingAlarm:null };
 }
 function loadState(){
   try{
@@ -698,6 +744,15 @@ function fmtWeek(key){
   const [, m, d] = key.split('-').map(Number);
   return `${d} ${MESES[m-1]}`;
 }
+function keyToDate(key){ const [y, m, d] = key.split('-').map(Number); return new Date(y, m-1, d); }
+function addWeeks(key, n){ const d = keyToDate(key); d.setDate(d.getDate() + 7*n); return weekKey(d); }
+function weeksBetween(a, b){ return Math.round((keyToDate(b) - keyToDate(a)) / (7 * 86400000)); }
+/* Mes al que pertenece una semana: el de su jueves (donde cae la mayoría de sus días). */
+function monthOfWeek(key){
+  const d = keyToDate(key);
+  d.setDate(d.getDate() + 3);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
 function roundHalf(n){ return Math.round(n * 2) / 2; }
 function numStr(n){ return Number.isInteger(n) ? String(n) : n.toFixed(1); }
 function toDisplay(kg){ return state.unit === 'lb' ? kg * LB_PER_KG : kg; }
@@ -747,7 +802,8 @@ function recordDone(dayId, exIdx){
 
 /* =========================================================================
    META SEMANAL (sobrecarga progresiva) — mínimo 75% de cumplimiento
-   Sube un escalón (2.5 kg / 5 lb) si la semana anterior:
+   En semanas de MANTENER del plan (ver más abajo) la meta es el mismo peso.
+   En semanas de SUBIR, sube un escalón (2.5 kg / 5 lb) si la semana anterior:
      1) hiciste al menos el 75% de la RUTINA del día (series marcadas / total).
         Así puedes saltar ejercicios cuando en tu gimnasio no hay la máquina.
      2) de ESE ejercicio hiciste al menos el 75% de sus series (3 de 4, 4 de 5…).
@@ -785,10 +841,47 @@ function lastTrackedWeek(dayId){
   return best;
 }
 
+/* =========================================================================
+   PLAN DE PROGRESIÓN: 2 semanas MANTENER / 2 semanas SUBIR
+   Se cuentan semanas desde el inicio del plan (state.planStart, un lunes):
+     semanas 1 y 2 → mantener el peso
+     semanas 3 y 4 → subir (si se cumple el 75%)
+   y se repite siempre. Así la primera subida llega después de 2 semanas.
+   Si vas en otra semana del plan, se corrige en Ajustes (botones S1–S4).
+   ========================================================================= */
+const PLAN_LEN = 4;
+const PLAN_UP_FROM = 2;            // posiciones 0 y 1 mantienen; 2 y 3 suben
+
+function planPos(week = weekKey()){
+  const n = weeksBetween(state.planStart, week);
+  return ((n % PLAN_LEN) + PLAN_LEN) % PLAN_LEN;
+}
+function planPhase(week = weekKey()){ return planPos(week) >= PLAN_UP_FROM ? 'up' : 'hold'; }
+function planLabel(week = weekKey()){
+  const pos = planPos(week);
+  return planPhase(week) === 'up'
+    ? `📅 Semana ${pos+1} de 4: ▲ toca subir`
+    : `📅 Semana ${pos+1} de 4: = mantener el peso`;
+}
+/* "Esta semana voy en la S(pos+1)": mueve el inicio del plan para que calce. */
+function setPlanPosition(pos){
+  state.planStart = addWeeks(weekKey(), -pos);
+  saveState();
+}
+function updatePlanUI(){
+  const pos = planPos();
+  document.querySelectorAll('#planSeg button').forEach(b =>
+    b.classList.toggle('on', Number(b.dataset.pos) === pos));
+  document.getElementById('planHint').textContent =
+    `Esta semana vas en la S${pos+1}: ${planPhase() === 'up' ? '▲ toca subir' : '= mantener el peso'}. Si vas en otra semana, tócala.`;
+}
+function monthChanged(weekA, weekB){ return monthOfWeek(weekA) !== monthOfWeek(weekB); }
+
 function targetFor(ref, sets, dayId){
   const prev = weightPrevWeek(ref);
   if(!prev) return null;
   const prevDisp = displayNum(prev.kg);
+  if(planPhase() === 'hold') return { disp: prevDisp, kind:'hold' };   // semana de mantener
   const step = state.unit === 'lb' ? 5 : 2.5;
   const up = { disp: roundHalf(prevDisp + step), kind:'up', step };
 
@@ -817,20 +910,30 @@ function prevLineHtml(prev, curKg, target){
       : 'Sin registro anterior · anota el peso que uses';
   }
   let txt = `Semana anterior (${fmtWeek(prev.week)}): <b>${fmtW(prev.kg)}</b>`;
-  const metaTxt = target.kind === 'up'
-    ? `🎯 Meta: <b class="goal">${numStr(target.disp)} ${state.unit}</b>`
-    : `🎯 Repite <b class="goal">${numStr(target.disp)} ${state.unit}</b> (${repeatReason(target)})`;
+  const goal = `<b class="goal">${numStr(target.disp)} ${state.unit}</b>`;
+  const metaTxt = target.kind === 'up'   ? `🎯 Meta: ${goal} (semana de subir)`
+                : target.kind === 'hold' ? `🎯 Mantén ${goal} (semana de mantener)`
+                : `🎯 Repite ${goal} (${repeatReason(target)})`;
   if(curKg === undefined) return `${txt} · ${metaTxt}`;
 
   const cur = displayNum(curKg);
   const diff = cur - displayNum(prev.kg);
   if(diff > 0){
-    txt += ` · <span class="up">▲ +${numStr(diff)} ${state.unit}</span>`;
-    if(cur >= target.disp) txt += ' <span class="up">✓ meta</span>';
+    if(target.kind === 'hold'){
+      txt += ` · <span class="warn">▲ +${numStr(diff)} ${state.unit} · esta semana tocaba mantener</span>`;
+    }else{
+      txt += ` · <span class="up">▲ +${numStr(diff)} ${state.unit}</span>`;
+      if(cur >= target.disp) txt += ' <span class="up">✓ meta</span>';
+    }
   }else if(diff < 0){
-    txt += ` · <span class="down">▼ −${numStr(-diff)} ${state.unit}</span>`;
+    // al empezar un mes nuevo, bajar es una decisión tuya: se registra sin marcarlo como error
+    txt += monthChanged(prev.week, weekKey())
+      ? ` · <span class="info">▼ −${numStr(-diff)} ${state.unit} · bajada del mes registrada</span>`
+      : ` · <span class="down">▼ −${numStr(-diff)} ${state.unit}</span>`;
   }else if(target.kind === 'up'){
     txt += ` · <span class="warn">= mismo peso · meta ${numStr(target.disp)} ${state.unit}</span>`;
+  }else if(target.kind === 'hold'){
+    txt += ` · <span class="up">= igual ✓ semana de mantener</span>`;
   }else{
     const need = target.why === 'day'
       ? 'completa al menos el 75% de la rutina'
@@ -908,16 +1011,21 @@ function compareRowHtml(ex, dayId){
   const target = targetFor(ex.ref, ex.sets, dayId);
   let metaCell = '<div class="cmp-cell">Meta hoy<b>—</b></div>';
   if(target){
-    const sub = target.kind === 'up' ? `+${numStr(target.step)} ${state.unit}`
-      : target.why === 'day' ? `repetir (rutina ${pctStr(target.dayPct)})`
-      : `repetir (${target.done}/${target.sets})`;
+    const sub = target.kind === 'up'   ? `+${numStr(target.step)} ${state.unit} · subir`
+              : target.kind === 'hold' ? 'mantener'
+              : target.why === 'day'   ? `repetir (rutina ${pctStr(target.dayPct)})`
+              : `repetir (${target.done}/${target.sets})`;
     metaCell = `<div class="cmp-cell goal">Meta hoy<b>${numStr(target.disp)} ${state.unit}</b><small>${sub}</small></div>`;
   }
   let curSub = '';
   if(prev && cur !== undefined){
     const d = displayNum(cur) - displayNum(prev.kg);
-    curSub = d > 0 ? `<small class="up">▲ +${numStr(d)}</small>`
-           : d < 0 ? `<small class="down">▼ −${numStr(-d)}</small>`
+    curSub = d > 0 ? (target && target.kind === 'hold'
+                       ? `<small class="warn">▲ +${numStr(d)} (tocaba mantener)</small>`
+                       : `<small class="up">▲ +${numStr(d)}</small>`)
+           : d < 0 ? (monthChanged(prev.week, weekKey())
+                       ? `<small class="info">▼ −${numStr(-d)} bajada del mes</small>`
+                       : `<small class="down">▼ −${numStr(-d)}</small>`)
            : target && target.kind === 'up' ? `<small class="warn">= mismo peso</small>`
            : `<small class="same">= igual</small>`;
   }
@@ -957,6 +1065,15 @@ function completionBannerHtml(dayId){
     ? `<div class="cmp-banner good">✓ Semana del ${fmtWeek(wk)}: hiciste el <b>${pctStr(pct)}</b> de la rutina (mínimo 75%). Toca subir peso en los ejercicios que completaste.</div>`
     : `<div class="cmp-banner low">✗ Semana del ${fmtWeek(wk)}: hiciste el <b>${pctStr(pct)}</b> de la rutina (mínimo 75%). Esta semana repite los pesos.</div>`;
 }
+/* Aviso de en qué semana del plan estás (y, si toca subir, cómo te fue). */
+function planBannerHtml(dayId){
+  const pos = planPos();
+  if(planPhase() === 'hold'){
+    const faltan = PLAN_UP_FROM - pos;
+    return `<div class="cmp-banner plan">📅 Semana ${pos+1} de 4 del plan: <b>mantener el peso</b>. La próxima subida es en ${faltan === 1 ? '1 semana' : faltan + ' semanas'}.</div>`;
+  }
+  return `<div class="cmp-banner plan">📅 Semana ${pos+1} de 4 del plan: <b>toca subir</b>.</div>` + completionBannerHtml(dayId);
+}
 function dayHasChecks(dayId){
   return Object.values(state.progress[dayId] || {}).some(Boolean);
 }
@@ -975,9 +1092,9 @@ function openWeightReport(dayId, fromReset){
     : `📋 Pesos de la semana anterior · Día ${pos} · ${day.title}`;
   document.getElementById('modalSub').textContent = fromReset
     ? 'Tus pesos quedan guardados: solo se desmarcan las series.'
-    : 'Sube el peso cuando hiciste al menos el 75% de la rutina y del ejercicio (puedes saltar ejercicios si falta la máquina). Si no, la meta es repetir el peso.';
+    : 'Plan: 2 semanas mantienes el peso y 2 semanas subes. En las de subir, sube si hiciste al menos el 75% de la rutina y del ejercicio (puedes saltar ejercicios si falta la máquina).';
   document.getElementById('modalBody').innerHTML = hasAny
-    ? completionBannerHtml(dayId) + summaryHtml(list) + list.map(ex => compareRowHtml(ex, dayId)).join('')
+    ? planBannerHtml(dayId) + summaryHtml(list) + list.map(ex => compareRowHtml(ex, dayId)).join('')
     : `<p class="modal-empty">Todavía no anotaste pesos en este día.<br>
        Escríbelos en el campo <b>Peso</b> de cada ejercicio y la próxima semana verás aquí tu reporte y tus metas.</p>`;
 
@@ -1014,6 +1131,113 @@ function resetDay(dayId){
   const dayObj = DAYS.find(d => d.id === dayId);
   applyStoredChecks(dayObj);
   refreshDayProgress(dayObj);
+}
+
+/* =========================================================================
+   HISTORIAL MENSUAL DE PESOS
+   Por mes: cada ejercicio con el peso de cada semana, cómo empezó frente a
+   cómo terminó el mes anterior (ahí se ve la bajada del mes, si la hubo) y
+   cuánto subió dentro del mes. Incluye ejercicios de variantes ya rotadas.
+   ========================================================================= */
+const MESES_LARGOS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+let historyMonth = null;
+
+const REF_INFO = (() => {
+  const map = {};
+  DAYS.forEach(day => day.exercises.forEach(ex => {
+    map[ex.ref] = map[ex.ref] || { name: ex.name, dayId: day.id };
+    (ex.alts || []).forEach(a => { map[a.ref] = map[a.ref] || { name: a.name, dayId: day.id }; });
+  }));
+  return map;
+})();
+
+function monthLabel(mk){ const [y, m] = mk.split('-').map(Number); return `${MESES_LARGOS[m-1]} ${y}`; }
+function shiftMonth(mk, n){
+  const [y, m] = mk.split('-').map(Number);
+  const d = new Date(y, m-1+n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+/* Lunes de las semanas que cuentan para el mes (4 o 5). */
+function weeksOfMonth(mk){
+  const [y, m] = mk.split('-').map(Number);
+  const d = new Date(y, m-1, 1);
+  while(d.getDay() !== 4) d.setDate(d.getDate() + 1);     // primer jueves del mes
+  d.setDate(d.getDate() - 3);                             // su lunes
+  const out = [];
+  for(let k = weekKey(d); monthOfWeek(k) === mk; k = addWeeks(k, 1)) out.push(k);
+  return out;
+}
+function lastBefore(log, week){
+  const ks = Object.keys(log).filter(k => k < week).sort();
+  return ks.length ? log[ks[ks.length - 1]] : undefined;
+}
+
+function renderHistory(){
+  const curMonth = monthOfWeek(weekKey());
+  if(!historyMonth) historyMonth = curMonth;
+  const allWeeks = Object.values(state.weightLog).flatMap(l => Object.keys(l)).sort();
+  const firstMonth = allWeeks.length ? monthOfWeek(allWeeks[0]) : curMonth;
+  document.getElementById('histTitle').textContent = monthLabel(historyMonth);
+  document.getElementById('histPrev').disabled = historyMonth <= firstMonth;
+  document.getElementById('histNext').disabled = historyMonth >= curMonth;
+
+  const weeks = weeksOfMonth(historyMonth);
+  const byDay = {};
+  let total = 0, up = 0, same = 0, down = 0;
+
+  Object.entries(state.weightLog).forEach(([ref, log]) => {
+    const vals = weeks.map(w => log[w]);
+    const recorded = vals.filter(v => v !== undefined);
+    if(!recorded.length) return;
+    total++;
+    const info = REF_INFO[ref] || { name: ref, dayId: 'otros' };
+    const first = recorded[0], last = recorded[recorded.length - 1];
+    const prevLast = lastBefore(log, weeks[0]);
+
+    const chips = weeks.map((w, i) => `
+      <div class="hist-chip${vals[i] === undefined ? ' empty' : ''}">
+        <small>S${i+1}</small><b>${vals[i] === undefined ? '—' : numStr(displayNum(vals[i]))}</b><small>${fmtWeek(w)}</small>
+      </div>`).join('');
+
+    let lines = '';
+    if(prevLast !== undefined){
+      const start = displayNum(first) - displayNum(prevLast);
+      const badge = start < 0 ? ` <span class="info">▼ −${numStr(-start)} bajada del mes</span>`
+                  : start > 0 ? ` <span class="up">▲ +${numStr(start)}</span>`
+                  : ` <span class="same">= igual</span>`;
+      lines += `<div class="hist-line">Mes anterior terminó en <b>${fmtW(prevLast)}</b> → este mes empezó en <b>${fmtW(first)}</b>${badge}</div>`;
+      const mom = displayNum(last) - displayNum(prevLast);
+      if(mom > 0) up++; else if(mom < 0) down++; else same++;
+    }
+    const inMonth = displayNum(last) - displayNum(first);
+    const badge2 = inMonth > 0 ? ` <span class="up">▲ +${numStr(inMonth)}</span>`
+                 : inMonth < 0 ? ` <span class="down">▼ −${numStr(-inMonth)}</span>` : '';
+    lines += `<div class="hist-line">En el mes: <b>${numStr(displayNum(first))} → ${fmtW(last)}</b>${badge2}</div>`;
+
+    (byDay[info.dayId] = byDay[info.dayId] || []).push(`
+      <div class="hist-ex">
+        <div class="hist-name">${info.name}</div>
+        <div class="hist-weeks">${chips}</div>
+        ${lines}
+      </div>`);
+  });
+
+  const body = document.getElementById('histBody');
+  if(!total){
+    body.innerHTML = `<p class="modal-empty">No hay pesos registrados en ${monthLabel(historyMonth).toLowerCase()}.<br>
+      Anota el peso en cada ejercicio y aquí verás tu mes semana por semana.</p>`;
+    return;
+  }
+  const groups = DAYS.filter(d => byDay[d.id])
+    .map(d => `<div class="hist-day">${d.title}</div>${byDay[d.id].join('')}`).join('')
+    + (byDay.otros ? `<div class="hist-day">Otros</div>${byDay.otros.join('')}` : '');
+  body.innerHTML = `
+    <div class="cmp-summary">
+      <span>${total} ejercicios con registro · pesos en ${state.unit}</span>
+      <span>vs mes anterior: <span class="up">▲ ${up}</span> <span class="same">= ${same}</span> <span class="down">▼ ${down}</span></span>
+    </div>
+    <p class="hist-hint">Para registrar una bajada al empezar un mes, anota el peso menor en el ejercicio: queda guardada como "bajada del mes".</p>
+    ${groups}`;
 }
 
 /* =========================================================================
@@ -1257,9 +1481,9 @@ function buildDayView(day, position){
     <div class="day-summary">
       <div class="duration">
         <b>Día ${position} · ${day.title}</b><br>
-        ⏱ Duración estimada: <b id="dur-${day.id}"></b><br>
-        <span class="variant-tag">Variante ${VARIANTS[variantIdx()]}</span> · incluye calentamiento y descansos<br>
-        <span class="min-tag" id="min-${day.id}">🎯 Llega al 75% para subir peso la próxima semana</span>
+        ⏱ Duración estimada: <b id="dur-${day.id}"></b> (con calentamiento)<br>
+        <span class="variant-tag">Variante ${VARIANTS[variantIdx()]}</span> · <span class="plan-tag" id="plan-${day.id}"></span><br>
+        <span class="min-tag" id="min-${day.id}"></span>
       </div>
       <div class="progress-ring-mini">
         <svg viewBox="0 0 52 52">
@@ -1300,15 +1524,20 @@ function refreshDayProgress(day){
   const label = document.getElementById('pct-' + day.id);
   if(ring){ ring.setAttribute('stroke-dasharray', RING_C); ring.setAttribute('stroke-dashoffset', RING_C*(1-pct/100)); }
   if(label) label.textContent = pct + '%';
-  // verde al llegar al 75%: ya aseguraste la subida de peso de la próxima semana
+  // verde al llegar al 75% de la rutina
   const reached = total > 0 && done / total >= MIN_COMPLETION;
   if(ring) ring.classList.toggle('reached', reached);
+  const planTag = document.getElementById('plan-' + day.id);
+  if(planTag) planTag.textContent = planLabel();
   const tag = document.getElementById('min-' + day.id);
   if(tag){
+    const nextUp = planPhase(addWeeks(weekKey(), 1)) === 'up';
     tag.classList.toggle('reached', reached);
-    tag.textContent = reached
-      ? '✓ Llegaste al 75%: la próxima semana toca subir peso'
-      : '🎯 Llega al 75% para subir peso la próxima semana';
+    tag.textContent = nextUp
+      ? (reached ? '✓ Llegaste al 75%: la próxima semana toca subir peso'
+                 : '🎯 Llega al 75% para subir peso la próxima semana')
+      : (reached ? '✓ Llegaste al 75% · la próxima semana es de mantener'
+                 : '🎯 Llega al 75% de la rutina · la próxima semana es de mantener');
   }
 }
 function applyStoredChecks(day){
@@ -1325,6 +1554,7 @@ function renderAll(){
   const days = orderedDays();
   tabsEl.innerHTML = [{id:'warmup', label:'🔥 Calentamiento'}]
     .concat(days.map((d,i)=>({id:d.id, label:`D${i+1} · ${d.tag}`})))
+    .concat([{id:'history', label:'📈 Historial'}])
     .map(it=>`<button class="tab-btn" data-view="${it.id}">${it.label}</button>`).join('');
   tabsEl.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> showView(btn.dataset.view));
@@ -1356,6 +1586,7 @@ function showView(id){
     loadDayImages(id);      // las fotos de este día se piden a la red recién ahora
     maybeAutoReport(id);    // primera vez en la semana: pesos anteriores y metas
   }
+  if(id === 'history') renderHistory();
   window.scrollTo({top:0, behavior:'instant'});
 }
 function suggestedDayId(){
@@ -1528,9 +1759,31 @@ window.addEventListener('appinstalled', () => {
    INICIALIZACIÓN
    ========================================================================= */
 function init(){
+  // el plan arranca en tu primera semana con pesos anotados (o esta semana si recién empiezas)
+  if(!state.planStart){
+    const all = Object.values(state.weightLog).flatMap(l => Object.keys(l)).sort();
+    state.planStart = all.length ? all[0] : weekKey();
+    saveState();
+  }
   renderAll();
+  updatePlanUI();
   setWarmupMinutes(state.warmupMin || 12);
   renderWarmupRing();
+
+  document.getElementById('planSeg').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-pos]');
+    if(!b) return;
+    setPlanPosition(Number(b.dataset.pos));
+    updatePlanUI();
+    DAYS.forEach(refreshDayProgress);
+    refreshWeightUI();
+  });
+  document.getElementById('histPrev').addEventListener('click', ()=>{
+    historyMonth = shiftMonth(historyMonth, -1); renderHistory();
+  });
+  document.getElementById('histNext').addEventListener('click', ()=>{
+    historyMonth = shiftMonth(historyMonth, 1); renderHistory();
+  });
 
   document.getElementById('keepAwakeToggle').checked = !!state.keepAwake;
   document.getElementById('bgAlarmToggle').checked = !!state.bgAlarm;
