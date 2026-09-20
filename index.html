@@ -287,6 +287,25 @@
   .set-line.stack{flex-direction:column; align-items:stretch; gap:9px;}
   .plan-seg button{flex:1;}
 
+  /* aviso de rotación */
+  .cycle-box.due{border-color:#fbbf24; background:#fbbf2414;}
+  #rotateStatus.due{color:#fbbf24; font-weight:800;}
+
+  /* pesos de los ejercicios de antes de rotar */
+  .prev-block{background:var(--card); border:1px solid var(--accent2); border-radius:var(--radius-sm); padding:12px; margin-top:12px;}
+  .prev-head{font-size:12.5px; font-weight:800; color:var(--accent2); margin-bottom:8px; line-height:1.35;}
+  .prev-row{display:flex; align-items:baseline; gap:8px; padding:6px 0; border-top:1px solid var(--border); font-size:12.5px;}
+  .prev-row:first-of-type{border-top:none;}
+  .prev-name{flex:1; min-width:0;}
+  .prev-row b{font-size:14px;}
+  .prev-row small{color:var(--text-faint); font-size:10.5px;}
+  .prev-foot{font-size:11px; color:var(--text-faint); margin-top:8px; line-height:1.45;}
+
+  /* peso corporal */
+  .body-card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px; margin-bottom:6px;}
+  .body-head{font-size:13.5px; font-weight:800; margin-bottom:10px;}
+  .hist-chip.cur{border-color:var(--accent2); background:#22d3ee14;}
+
   /* ---------- Historial mensual ---------- */
   .hist-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:8px 0 12px;}
   .hist-head .mini-btn{padding:9px 15px; font-size:14px;}
@@ -412,7 +431,8 @@
       <div class="cycle-box">
         <div class="cycle-info">
           Rotación <b id="cycleNum">1</b> · Variante <b id="variantLetter">A</b>
-          <small id="cycleHint">Rota cada mes: cambia los ejercicios y mueve los músculos de día.</small>
+          <small id="rotateStatus"></small>
+          <small id="cycleHint">Rota cada 2 meses: cambia los ejercicios y mueve los músculos de día.</small>
         </div>
         <button class="mini-btn warn" id="rotateBtn">🔄 Rotar</button>
       </div>
@@ -470,6 +490,21 @@
       <div class="hist-title" id="histTitle"></div>
       <button type="button" class="mini-btn" id="histNext" aria-label="Mes siguiente">▶</button>
     </div>
+
+    <div class="body-card">
+      <div class="body-head">⚖️ Mi peso corporal · <span id="bodyMonth"></span></div>
+      <div class="weight-row">
+        <span class="w-label">Peso</span>
+        <button type="button" class="w-step" id="bodyMinus" aria-label="Bajar peso corporal">−</button>
+        <input class="w-input" id="bodyInput" type="text" inputmode="decimal" enterkeyhint="done"
+               autocomplete="off" aria-label="Peso corporal del mes">
+        <button type="button" class="w-step" id="bodyPlus" aria-label="Subir peso corporal">+</button>
+        <span class="w-unit" id="bodyUnit">kg</span>
+      </div>
+      <p class="w-prev" id="bodyLine"></p>
+      <div class="hist-weeks" id="bodyChips"></div>
+    </div>
+
     <div id="histBody"></div>
   </section>
 
@@ -672,7 +707,8 @@ const GYM_STORAGE_KEY = 'gymRoutineState_v2';
 
 function defaultState(){
   return { warmupMin:12, cycle:0, keepAwake:true, bgAlarm:true, unit:'kg',
-           progress:{}, weightLog:{}, doneLog:{}, reportSeen:{}, planStart:null, pendingAlarm:null };
+           progress:{}, weightLog:{}, doneLog:{}, bodyWeight:{}, reportSeen:{},
+           planStart:null, lastRotation:null, rotateAlertSeen:null, pendingAlarm:null };
 }
 function loadState(){
   try{
@@ -707,16 +743,52 @@ function orderedDays(){
   const off = state.cycle % DAYS.length;
   return DAYS.slice(off).concat(DAYS.slice(0, off));
 }
-function rotateCycle(){
-  const ok = confirm(
-    'Rotar la rutina del mes:\n\n' +
-    '· Cambia los ejercicios por sus variantes\n' +
-    '· Mueve los músculos a otro día de la semana\n' +
-    '· Borra las series marcadas para empezar limpio\n\n' +
-    '¿Continuar?'
-  );
-  if(!ok) return;
+/* La rotación se hace a mano, pero a los 2 meses la app avisa.
+   Esos 2 meses se cuentan en SEMANAS ENTRENADAS, no en semanas de calendario:
+   una semana solo cuenta si entrenaste más de 3 días. Así una semana a medias
+   (la primera, un viaje, una enfermedad) no adelanta el aviso. */
+const ROTATION_WEEKS = 8;
+const MIN_TRAINING_DAYS = 4;        // "más de 3 días" para que la semana cuente
+
+/* Días distintos con al menos una serie marcada en esa semana. */
+function trainedDaysInWeek(week){
+  return DAYS.filter(day => day.exercises
+    .map(activeExercise)
+    .some(ex => (state.doneLog[ex.ref] || {})[week] > 0)
+  ).length;
+}
+function weeksSinceRotation(){ return weeksBetween(state.lastRotation || weekKey(), weekKey()); }
+/* Semanas entrenadas (4+ días) desde la última rotación. */
+function trainedWeeksSinceRotation(){
+  const start = state.lastRotation || weekKey();
+  const now = weekKey();
+  if(start > now) return 0;
+  let count = 0, guard = 0;
+  for(let w = start; w <= now && guard < 300; w = addWeeks(w, 1), guard++){
+    if(trainedDaysInWeek(w) >= MIN_TRAINING_DAYS) count++;
+  }
+  return count;
+}
+function rotationDue(){ return trainedWeeksSinceRotation() >= ROTATION_WEEKS; }
+function weeksToRotation(){ return Math.max(0, ROTATION_WEEKS - trainedWeeksSinceRotation()); }
+/* Semana de la rotación y la siguiente: ahí se siguen mostrando los pesos viejos. */
+function justRotated(){ return state.lastRotation && weeksSinceRotation() <= 1; }
+
+/* Ejercicios de la variante anterior, para no perder de vista sus pesos. */
+function prevVariantList(day){
+  const pv = (variantIdx() - 1 + VARIANTS.length) % VARIANTS.length;
+  return day.exercises.map(ex => {
+    if(pv === 0) return { name: ex.name, ref: ex.ref };
+    const alt = ex.alts && ex.alts[pv-1];
+    return alt ? { name: alt.name, ref: alt.ref } : null;
+  }).filter(Boolean);
+}
+
+function doRotate(){
   state.cycle = (state.cycle + 1) % (VARIANTS.length * DAYS.length);
+  state.lastRotation = weekKey();
+  state.rotateAlertSeen = null;
+  state.reportSeen = {};                 // que el reporte vuelva a salir con los ejercicios nuevos
   for(const d of DAYS) state.progress[d.id] = {};
   saveState();
   renderAll();
@@ -1004,7 +1076,7 @@ function updateUnitSeg(){
      · antes de reiniciar el día (ahí confirmar solo desmarca las series)
    ========================================================================= */
 const weightModal = document.getElementById('weightModal');
-let modalDayId = null;
+let modalConfirmAction = null;
 
 function compareRowHtml(ex, dayId){
   const prev = weightPrevWeek(ex.ref), cur = weightThisWeek(ex.ref);
@@ -1077,8 +1149,31 @@ function planBannerHtml(dayId){
 function dayHasChecks(dayId){
   return Object.values(state.progress[dayId] || {}).some(Boolean);
 }
+function lastWeightAny(ref){
+  const log = state.weightLog[ref];
+  const ks = log ? Object.keys(log).sort() : [];
+  if(!ks.length) return null;
+  const k = ks[ks.length - 1];
+  return { week: k, kg: log[k] };
+}
+/* Pesos que usabas en los ejercicios de antes de la rotación. */
+function prevVariantBlockHtml(day){
+  const rows = prevVariantList(day).map(ex => {
+    const last = lastWeightAny(ex.ref);
+    return last
+      ? `<div class="prev-row"><span class="prev-name">${ex.name}</span><b>${fmtW(last.kg)}</b><small>sem. del ${fmtWeek(last.week)}</small></div>`
+      : '';
+  }).filter(Boolean);
+  if(!rows.length) return '';
+  return `<div class="prev-block">
+      <div class="prev-head">🔄 Pesos de los ejercicios anteriores (antes de rotar)</div>
+      ${rows.join('')}
+      <div class="prev-foot">Úsalos de referencia para elegir con cuánto empezar. Siempre quedan guardados en 📈 Historial.</div>
+    </div>`;
+}
 function dayHasHistory(day){
-  return day.exercises.map(activeExercise).some(ex => weightPrevWeek(ex.ref));
+  if(day.exercises.map(activeExercise).some(ex => weightPrevWeek(ex.ref))) return true;
+  return justRotated() && prevVariantList(day).some(ex => lastWeightAny(ex.ref));
 }
 /* fromReset = true cuando lo abre el botón "Reiniciar progreso de hoy". */
 function openWeightReport(dayId, fromReset){
@@ -1086,29 +1181,24 @@ function openWeightReport(dayId, fromReset){
   const pos = orderedDays().indexOf(day) + 1;
   const list = day.exercises.map(activeExercise);
   const hasAny = list.some(ex => weightPrevWeek(ex.ref) || weightThisWeek(ex.ref) !== undefined);
-
-  document.getElementById('modalTitle').textContent = fromReset
-    ? `Antes de reiniciar · Día ${pos} · ${day.title}`
-    : `📋 Pesos de la semana anterior · Día ${pos} · ${day.title}`;
-  document.getElementById('modalSub').textContent = fromReset
-    ? 'Tus pesos quedan guardados: solo se desmarcan las series.'
-    : 'Plan: 2 semanas mantienes el peso y 2 semanas subes. En las de subir, sube si hiciste al menos el 75% de la rutina y del ejercicio (puedes saltar ejercicios si falta la máquina).';
-  document.getElementById('modalBody').innerHTML = hasAny
-    ? planBannerHtml(dayId) + summaryHtml(list) + list.map(ex => compareRowHtml(ex, dayId)).join('')
-    : `<p class="modal-empty">Todavía no anotaste pesos en este día.<br>
-       Escríbelos en el campo <b>Peso</b> de cada ejercicio y la próxima semana verás aquí tu reporte y tus metas.</p>`;
-
-  // botones: si hay series marcadas (de la semana pasada) se ofrece reiniciarlas
+  const prevBlock = justRotated() ? prevVariantBlockHtml(day) : '';
   const showReset = fromReset || dayHasChecks(dayId);
-  const btnCancel = document.getElementById('modalCancel');
-  const btnConfirm = document.getElementById('modalConfirm');
-  btnConfirm.hidden = !showReset;
-  btnCancel.textContent = fromReset ? 'Cancelar' : (showReset ? 'Cerrar' : 'Empezar 💪');
-  btnCancel.className = 'btn-big ' + (showReset ? 'btn-ghost' : 'btn-primary');
 
-  modalDayId = dayId;
-  weightModal.hidden = false;
-  document.body.classList.add('modal-open');
+  openModal({
+    title: fromReset
+      ? `Antes de reiniciar · Día ${pos} · ${day.title}`
+      : `📋 Pesos de la semana anterior · Día ${pos} · ${day.title}`,
+    sub: fromReset
+      ? 'Tus pesos quedan guardados: solo se desmarcan las series.'
+      : 'Plan: 2 semanas mantienes el peso y 2 semanas subes. En las de subir, sube si hiciste al menos el 75% de la rutina y del ejercicio (puedes saltar ejercicios si falta la máquina).',
+    bodyHtml: hasAny
+      ? planBannerHtml(dayId) + summaryHtml(list) + list.map(ex => compareRowHtml(ex, dayId)).join('') + prevBlock
+      : (prevBlock || `<p class="modal-empty">Todavía no anotaste pesos en este día.<br>
+         Escríbelos en el campo <b>Peso</b> de cada ejercicio y la próxima semana verás aquí tu reporte y tus metas.</p>`),
+    confirmText: showReset ? 'Reiniciar series' : null,
+    cancelText: fromReset ? 'Cancelar' : (showReset ? 'Cerrar' : 'Empezar 💪'),
+    onConfirm: showReset ? () => resetDay(dayId) : null
+  });
 }
 /* La primera vez que abres un día en la semana, el reporte aparece solo. */
 function maybeAutoReport(dayId){
@@ -1120,10 +1210,50 @@ function maybeAutoReport(dayId){
   saveState();
   openWeightReport(dayId, false);
 }
+
+/* ===== Aviso de rotación a los 2 meses ===== */
+function openRotateModal(){
+  const hechas = trainedWeeksSinceRotation();
+  const hoy = trainedDaysInWeek(weekKey());
+  const aviso = rotationDue()
+    ? `<div class="cmp-banner low">⏰ Llevas <b>${hechas} semanas entrenadas</b> (más de 3 días cada una) con los mismos ejercicios: ya son 2 meses de entrenamiento.</div>`
+    : `<div class="cmp-banner plan">Llevas <b>${hechas} de ${ROTATION_WEEKS}</b> semanas entrenadas con estos ejercicios.
+       Solo cuentan las semanas con más de 3 días de entrenamiento; esta semana llevas <b>${hoy} ${hoy === 1 ? 'día' : 'días'}</b>.</div>`;
+  openModal({
+    title: rotationDue() ? '⏰ Ya son 2 meses: toca rotar los ejercicios' : '🔄 Rotar ejercicios',
+    sub: 'Al rotar cambian los ejercicios por sus variantes y los músculos se mueven a otro día.',
+    bodyHtml: aviso + `<p class="modal-empty">Al rotar se desmarcan las series para empezar limpio.<br><br>
+      Tus pesos <b>no se borran</b>: la primera semana después de rotar vas a seguir viendo los pesos de los ejercicios anteriores, y siempre quedan guardados en <b>📈 Historial</b>.</p>`,
+    confirmText: '🔄 Rotar ahora',
+    cancelText: 'Más tarde',
+    onConfirm: doRotate
+  });
+}
+function maybeRotationAlert(){
+  if(!rotationDue() || state.rotateAlertSeen === weekKey()) return;
+  state.rotateAlertSeen = weekKey();
+  saveState();
+  openRotateModal();
+}
+
+function openModal(opts){
+  document.getElementById('modalTitle').textContent = opts.title;
+  document.getElementById('modalSub').textContent = opts.sub || '';
+  document.getElementById('modalBody').innerHTML = opts.bodyHtml || '';
+  const btnCancel = document.getElementById('modalCancel');
+  const btnConfirm = document.getElementById('modalConfirm');
+  btnConfirm.hidden = !opts.confirmText;
+  if(opts.confirmText) btnConfirm.textContent = opts.confirmText;
+  btnCancel.textContent = opts.cancelText || 'Cerrar';
+  btnCancel.className = 'btn-big ' + (opts.confirmText ? 'btn-ghost' : 'btn-primary');
+  modalConfirmAction = opts.onConfirm || null;
+  weightModal.hidden = false;
+  document.body.classList.add('modal-open');
+}
 function closeModal(){
   weightModal.hidden = true;
   document.body.classList.remove('modal-open');
-  modalDayId = null;
+  modalConfirmAction = null;
 }
 function resetDay(dayId){
   state.progress[dayId] = {};
@@ -1172,6 +1302,93 @@ function lastBefore(log, week){
   return ks.length ? log[ks[ks.length - 1]] : undefined;
 }
 
+/* ===== Peso corporal por mes =====
+   Un registro por mes para ver si estás bajando o estancado. */
+const STAGNANT_MARGIN = 0.5;        // kg de diferencia para considerarlo "el mismo peso"
+
+function bodyOf(mk){ return state.bodyWeight[mk]; }
+function prevBodyMonth(mk){
+  const ks = Object.keys(state.bodyWeight).filter(k => k < mk).sort();
+  if(!ks.length) return null;
+  const k = ks[ks.length - 1];
+  return { month: k, kg: state.bodyWeight[k] };
+}
+function setBodyWeight(mk, displayVal){
+  if(displayVal === null) delete state.bodyWeight[mk];
+  else state.bodyWeight[mk] = toKg(displayVal);
+  saveState();
+}
+/* Meses seguidos con prácticamente el mismo peso (contando hacia atrás). */
+function stagnantMonths(mk){
+  const base = state.bodyWeight[mk];
+  if(base === undefined) return 0;
+  let count = 1, cur = mk;
+  for(;;){
+    const p = prevBodyMonth(cur);
+    if(!p || Math.abs(p.kg - base) > STAGNANT_MARGIN) break;
+    count++; cur = p.month;
+  }
+  return count;
+}
+function refreshBodyUI(){
+  if(!historyMonth) return;
+  const mk = historyMonth;
+  const cur = bodyOf(mk), prev = prevBodyMonth(mk);
+  const input = document.getElementById('bodyInput');
+  document.getElementById('bodyMonth').textContent = monthLabel(mk);
+  if(document.activeElement !== input){
+    input.value = cur !== undefined ? numStr(displayNum(cur)) : '';
+  }
+  input.placeholder = prev ? numStr(displayNum(prev.kg)) : '—';
+  document.getElementById('bodyUnit').textContent = state.unit;
+
+  let line;
+  if(cur === undefined){
+    line = prev
+      ? `Último registro (${monthLabel(prev.month)}): <b>${fmtW(prev.kg)}</b> · anota tu peso de este mes`
+      : 'Anota tu peso corporal para empezar el seguimiento mes a mes';
+  }else if(!prev){
+    line = 'Primer mes registrado 💪 · el próximo mes verás si bajaste o te mantuviste';
+  }else{
+    const d = displayNum(cur) - displayNum(prev.kg);
+    const casiIgual = Math.abs(cur - prev.kg) <= STAGNANT_MARGIN;   // ±0.5 kg es ruido de balanza
+    line = `${monthLabel(prev.month)}: <b>${fmtW(prev.kg)}</b> → ${monthLabel(mk)}: <b>${fmtW(cur)}</b> · `;
+    line += casiIgual ? `<span class="same">≈ igual</span>`
+          : d < 0 ? `<span class="up">▼ −${numStr(-d)} ${state.unit} bajaste</span>`
+          : `<span class="warn">▲ +${numStr(d)} ${state.unit} subiste</span>`;
+    const st = stagnantMonths(mk);
+    if(st >= 2) line += ` · <span class="warn">estancado ${st} meses en ~${fmtW(cur)}</span>`;
+  }
+  document.getElementById('bodyLine').innerHTML = line;
+
+  const months = Object.keys(state.bodyWeight).sort().slice(-6);
+  document.getElementById('bodyChips').innerHTML = months.map(m => `
+    <div class="hist-chip${m === mk ? ' cur' : ''}">
+      <small>${MESES[Number(m.split('-')[1]) - 1]}</small><b>${numStr(displayNum(state.bodyWeight[m]))}</b>
+    </div>`).join('');
+}
+function commitBodyInput(input){
+  const raw = input.value.trim().replace(',', '.');
+  if(raw === ''){
+    if(bodyOf(historyMonth) !== undefined) setBodyWeight(historyMonth, null);
+  }else{
+    const v = parseFloat(raw);
+    if(isNaN(v) || v <= 0 || v > 400) return;         // valor inválido: se ignora
+    const cur = bodyOf(historyMonth);
+    if(cur === undefined || displayNum(cur) !== roundHalf(v)) setBodyWeight(historyMonth, roundHalf(v));
+  }
+  refreshBodyUI();
+}
+function stepBody(dir){
+  const input = document.getElementById('bodyInput');
+  const step = state.unit === 'lb' ? 1 : 0.5;
+  const typed = parseFloat(input.value.replace(',', '.'));
+  const ph = parseFloat(input.placeholder);
+  const base = !isNaN(typed) ? typed : (!isNaN(ph) ? ph : (state.unit === 'lb' ? 154 : 70));
+  setBodyWeight(historyMonth, Math.max(0, roundHalf(base + dir * step)));
+  refreshBodyUI();
+}
+
 function renderHistory(){
   const curMonth = monthOfWeek(weekKey());
   if(!historyMonth) historyMonth = curMonth;
@@ -1180,6 +1397,8 @@ function renderHistory(){
   document.getElementById('histTitle').textContent = monthLabel(historyMonth);
   document.getElementById('histPrev').disabled = historyMonth <= firstMonth;
   document.getElementById('histNext').disabled = historyMonth >= curMonth;
+
+  refreshBodyUI();
 
   const weeks = weeksOfMonth(historyMonth);
   const byDay = {};
@@ -1570,6 +1789,21 @@ function renderAll(){
   document.getElementById('variantLetter').textContent = VARIANTS[variantIdx()];
   const order = days.map(d=>d.tag).join(' → ');
   document.getElementById('cycleHint').textContent = 'Orden actual: ' + order;
+
+  updateRotateStatus();
+}
+
+/* Aviso de rotación en Ajustes (se recalcula al marcar series). */
+function updateRotateStatus(){
+  const st = document.getElementById('rotateStatus');
+  if(!st) return;
+  const due = rotationDue();
+  const hechas = trainedWeeksSinceRotation();
+  st.textContent = due
+    ? `⏰ Ya son ${hechas} semanas entrenadas (2 meses): toca rotar los ejercicios`
+    : `Semanas entrenadas: ${hechas} de ${ROTATION_WEEKS} · ${weeksToRotation() === 1 ? 'falta 1' : 'faltan ' + weeksToRotation()} para rotar (solo cuentan las de 4+ días)`;
+  st.classList.toggle('due', due);
+  document.querySelector('.cycle-box').classList.toggle('due', due);
 }
 
 /* =========================================================================
@@ -1765,6 +1999,8 @@ function init(){
     state.planStart = all.length ? all[0] : weekKey();
     saveState();
   }
+  // si nunca se rotó, la cuenta de los 2 meses arranca con el plan
+  if(!state.lastRotation){ state.lastRotation = state.planStart; saveState(); }
   renderAll();
   updatePlanUI();
   setWarmupMinutes(state.warmupMin || 12);
@@ -1785,6 +2021,23 @@ function init(){
     historyMonth = shiftMonth(historyMonth, 1); renderHistory();
   });
 
+  // peso corporal del mes
+  const bodyInput = document.getElementById('bodyInput');
+  document.getElementById('bodyMinus').addEventListener('click', ()=> stepBody(-1));
+  document.getElementById('bodyPlus').addEventListener('click', ()=> stepBody(1));
+  bodyInput.addEventListener('focus', ()=>{
+    if(bodyInput.value === '' && !isNaN(parseFloat(bodyInput.placeholder))){
+      bodyInput.value = bodyInput.placeholder;
+    }
+    setTimeout(()=> bodyInput.select(), 0);
+  });
+  bodyInput.addEventListener('input', ()=> commitBodyInput(bodyInput));
+  bodyInput.addEventListener('blur', ()=>{
+    commitBodyInput(bodyInput);
+    setTimeout(refreshBodyUI, 0);
+  });
+  bodyInput.addEventListener('keydown', e=>{ if(e.key === 'Enter') bodyInput.blur(); });
+
   document.getElementById('keepAwakeToggle').checked = !!state.keepAwake;
   document.getElementById('bgAlarmToggle').checked = !!state.bgAlarm;
   updateNotifBtn();
@@ -1798,7 +2051,7 @@ function init(){
     if(!state.bgAlarm) stopAudioKeepAlive();
   });
   document.getElementById('notifBtn').addEventListener('click', askNotifPermission);
-  document.getElementById('rotateBtn').addEventListener('click', rotateCycle);
+  document.getElementById('rotateBtn').addEventListener('click', openRotateModal);
 
   document.getElementById('installBtn').addEventListener('click', async ()=>{
     if(!deferredInstall) return;
@@ -1826,6 +2079,7 @@ function init(){
     recordDone(day, Number(ex));     // cuenta series completas para la meta de la próxima semana
     saveState();
     refreshDayProgress(DAYS.find(d=>d.id===day));
+    updateRotateStatus();            // marcar series puede completar una semana entrenada
   });
 
   // botones: reporte de pesos, reiniciar día (con reporte) y − / + del peso
@@ -1868,12 +2122,14 @@ function init(){
     saveState();
     updateUnitSeg();
     refreshWeightUI();
+    refreshBodyUI();
   });
 
   document.getElementById('modalCancel').addEventListener('click', closeModal);
   document.getElementById('modalConfirm').addEventListener('click', ()=>{
-    if(modalDayId) resetDay(modalDayId);
+    const action = modalConfirmAction;
     closeModal();
+    if(action) action();
   });
   weightModal.addEventListener('click', e=>{ if(e.target === weightModal) closeModal(); });
   document.addEventListener('keydown', e=>{
@@ -1903,6 +2159,7 @@ function init(){
 
   checkPendingAlarm();
   showView('warmup');
+  maybeRotationAlert();   // avisa una vez por semana cuando ya pasaron los 2 meses
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', ()=>{
