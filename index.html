@@ -287,6 +287,9 @@
   .set-line.stack{flex-direction:column; align-items:stretch; gap:9px;}
   .plan-seg button{flex:1;}
 
+  .bonus-ctl{display:flex; align-items:center; gap:8px; flex:0 0 auto;}
+  .bonus-ctl b{min-width:26px; text-align:center; font-size:17px; font-variant-numeric:tabular-nums;}
+
   /* aviso de rotación */
   .cycle-box.due{border-color:#fbbf24; background:#fbbf2414;}
   #rotateStatus.due{color:#fbbf24; font-weight:800;}
@@ -432,9 +435,34 @@
         <div class="cycle-info">
           Rotación <b id="cycleNum">1</b> · Variante <b id="variantLetter">A</b>
           <small id="rotateStatus"></small>
-          <small id="cycleHint">Rota cada 2 meses: cambia los ejercicios y mueve los músculos de día.</small>
+          <small id="cycleHint">Rota cada 2 meses, o cuando quieras con el botón.</small>
         </div>
         <button class="mini-btn warn" id="rotateBtn">🔄 Rotar</button>
+      </div>
+
+      <div class="set-line stack">
+        <div class="set-label">
+          Una semana cumplida son
+          <small>Días con el 75% o más de sus series marcadas. Si entrenas 2 días por semana, deja 2.</small>
+        </div>
+        <div class="seg plan-seg" id="weekGoalSeg">
+          <button type="button" data-days="2">2 días</button>
+          <button type="button" data-days="3">3 días</button>
+          <button type="button" data-days="4">4 días</button>
+          <button type="button" data-days="5">5 días</button>
+        </div>
+      </div>
+
+      <div class="set-line">
+        <div class="set-label">
+          Semanas entrenadas antes de la app
+          <small>Súmalas para que el aviso de los 2 meses cuadre con tu historia real.</small>
+        </div>
+        <div class="bonus-ctl">
+          <button type="button" class="w-step" id="bonusMinus" aria-label="Quitar semana">−</button>
+          <b id="bonusVal">0</b>
+          <button type="button" class="w-step" id="bonusPlus" aria-label="Sumar semana">+</button>
+        </div>
       </div>
 
       <button class="btn-big btn-success" id="installBtn">📲 Instalar app en el celular</button>
@@ -708,7 +736,8 @@ const GYM_STORAGE_KEY = 'gymRoutineState_v2';
 function defaultState(){
   return { warmupMin:12, cycle:0, keepAwake:true, bgAlarm:true, unit:'kg',
            progress:{}, weightLog:{}, doneLog:{}, bodyWeight:{}, reportSeen:{},
-           planStart:null, lastRotation:null, rotateAlertSeen:null, pendingAlarm:null };
+           planStart:null, lastRotation:null, rotateAlertSeen:null,
+           weekDaysGoal:2, bonusWeeks:0, pendingAlarm:null };
 }
 function loadState(){
   try{
@@ -743,29 +772,36 @@ function orderedDays(){
   const off = state.cycle % DAYS.length;
   return DAYS.slice(off).concat(DAYS.slice(0, off));
 }
-/* La rotación se hace a mano, pero a los 2 meses la app avisa.
-   Esos 2 meses se cuentan en SEMANAS ENTRENADAS, no en semanas de calendario:
-   una semana solo cuenta si entrenaste más de 3 días. Así una semana a medias
-   (la primera, un viaje, una enfermedad) no adelanta el aviso. */
+/* La rotación se hace a mano (el botón Rotar funciona cuando quieras), pero a
+   los 2 meses la app avisa. Esos 2 meses se cuentan en SEMANAS CUMPLIDAS, no
+   en semanas de calendario:
+     · un DÍA cuenta como cumplido si marcaste el 75% o más de sus series
+     · una SEMANA cuenta si tiene al menos state.weekDaysGoal días cumplidos
+   Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
+   semana el contador igual avanza. A eso se le suman las semanas que
+   entrenaste antes de tener la app (state.bonusWeeks). */
 const ROTATION_WEEKS = 8;
-const MIN_TRAINING_DAYS = 4;        // "más de 3 días" para que la semana cuente
 
-/* Días distintos con al menos una serie marcada en esa semana. */
+/* Días cumplidos (75%+ de sus series) en esa semana. */
 function trainedDaysInWeek(week){
-  return DAYS.filter(day => day.exercises
-    .map(activeExercise)
-    .some(ex => (state.doneLog[ex.ref] || {})[week] > 0)
-  ).length;
+  return DAYS.filter(day => {
+    const p = dayCompletion(day.id, week);
+    return p !== null && p >= MIN_COMPLETION;
+  }).length;
 }
+function weekDaysGoal(){ return state.weekDaysGoal || 2; }
+function weekIsDone(week){ return trainedDaysInWeek(week) >= weekDaysGoal(); }
 function weeksSinceRotation(){ return weeksBetween(state.lastRotation || weekKey(), weekKey()); }
-/* Semanas entrenadas (4+ días) desde la última rotación. */
+/* Semanas cumplidas desde la última rotación (+ las anteriores a la app). */
 function trainedWeeksSinceRotation(){
   const start = state.lastRotation || weekKey();
   const now = weekKey();
-  if(start > now) return 0;
-  let count = 0, guard = 0;
-  for(let w = start; w <= now && guard < 300; w = addWeeks(w, 1), guard++){
-    if(trainedDaysInWeek(w) >= MIN_TRAINING_DAYS) count++;
+  let count = state.bonusWeeks || 0;
+  if(start <= now){
+    let guard = 0;
+    for(let w = start; w <= now && guard < 300; w = addWeeks(w, 1), guard++){
+      if(weekIsDone(w)) count++;
+    }
   }
   return count;
 }
@@ -788,6 +824,7 @@ function doRotate(){
   state.cycle = (state.cycle + 1) % (VARIANTS.length * DAYS.length);
   state.lastRotation = weekKey();
   state.rotateAlertSeen = null;
+  state.bonusWeeks = 0;                  // el contador arranca de cero con los ejercicios nuevos
   state.reportSeen = {};                 // que el reporte vuelva a salir con los ejercicios nuevos
   for(const d of DAYS) state.progress[d.id] = {};
   saveState();
@@ -1216,11 +1253,12 @@ function openRotateModal(){
   const hechas = trainedWeeksSinceRotation();
   const hoy = trainedDaysInWeek(weekKey());
   const aviso = rotationDue()
-    ? `<div class="cmp-banner low">⏰ Llevas <b>${hechas} semanas entrenadas</b> (más de 3 días cada una) con los mismos ejercicios: ya son 2 meses de entrenamiento.</div>`
-    : `<div class="cmp-banner plan">Llevas <b>${hechas} de ${ROTATION_WEEKS}</b> semanas entrenadas con estos ejercicios.
-       Solo cuentan las semanas con más de 3 días de entrenamiento; esta semana llevas <b>${hoy} ${hoy === 1 ? 'día' : 'días'}</b>.</div>`;
+    ? `<div class="cmp-banner low">⏰ Llevas <b>${hechas} semanas cumplidas</b> con los mismos ejercicios: ya son 2 meses de entrenamiento.</div>`
+    : `<div class="cmp-banner plan">Llevas <b>${hechas} de ${ROTATION_WEEKS}</b> semanas cumplidas con estos ejercicios.
+       Una semana cuenta con ${weekDaysGoal()} días al 75%; esta semana llevas <b>${hoy} ${hoy === 1 ? 'día' : 'días'}</b>.
+       <br><b>Puedes rotar cuando quieras</b>, aunque no se cumplan las 8 semanas.</div>`;
   openModal({
-    title: rotationDue() ? '⏰ Ya son 2 meses: toca rotar los ejercicios' : '🔄 Rotar ejercicios',
+    title: rotationDue() ? '⏰ Ya son 2 meses: toca rotar los ejercicios' : '🔄 Rotar ejercicios cuando quieras',
     sub: 'Al rotar cambian los ejercicios por sus variantes y los músculos se mueven a otro día.',
     bodyHtml: aviso + `<p class="modal-empty">Al rotar se desmarcan las series para empezar limpio.<br><br>
       Tus pesos <b>no se borran</b>: la primera semana después de rotar vas a seguir viendo los pesos de los ejercicios anteriores, y siempre quedan guardados en <b>📈 Historial</b>.</p>`,
@@ -1799,11 +1837,18 @@ function updateRotateStatus(){
   if(!st) return;
   const due = rotationDue();
   const hechas = trainedWeeksSinceRotation();
+  const dias = trainedDaysInWeek(weekKey());
   st.textContent = due
-    ? `⏰ Ya son ${hechas} semanas entrenadas (2 meses): toca rotar los ejercicios`
-    : `Semanas entrenadas: ${hechas} de ${ROTATION_WEEKS} · ${weeksToRotation() === 1 ? 'falta 1' : 'faltan ' + weeksToRotation()} para rotar (solo cuentan las de 4+ días)`;
+    ? `⏰ Ya son ${hechas} semanas cumplidas (2 meses): toca rotar los ejercicios`
+    : `Semanas cumplidas: ${hechas} de ${ROTATION_WEEKS} · ${weeksToRotation() === 1 ? 'falta 1' : 'faltan ' + weeksToRotation()}`
+      + ` · esta semana llevas ${dias} ${dias === 1 ? 'día' : 'días'} de ${weekDaysGoal()}`;
   st.classList.toggle('due', due);
   document.querySelector('.cycle-box').classList.toggle('due', due);
+
+  document.querySelectorAll('#weekGoalSeg button').forEach(b =>
+    b.classList.toggle('on', Number(b.dataset.days) === weekDaysGoal()));
+  const bv = document.getElementById('bonusVal');
+  if(bv) bv.textContent = state.bonusWeeks || 0;
 }
 
 /* =========================================================================
@@ -2052,6 +2097,24 @@ function init(){
   });
   document.getElementById('notifBtn').addEventListener('click', askNotifPermission);
   document.getElementById('rotateBtn').addEventListener('click', openRotateModal);
+
+  // cuántos días hacen una semana cumplida
+  document.getElementById('weekGoalSeg').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-days]');
+    if(!b) return;
+    state.weekDaysGoal = Number(b.dataset.days);
+    saveState();
+    updateRotateStatus();
+  });
+  // semanas entrenadas antes de tener la app
+  document.getElementById('bonusMinus').addEventListener('click', ()=>{
+    state.bonusWeeks = Math.max(0, (state.bonusWeeks || 0) - 1);
+    saveState(); updateRotateStatus();
+  });
+  document.getElementById('bonusPlus').addEventListener('click', ()=>{
+    state.bonusWeeks = Math.min(ROTATION_WEEKS, (state.bonusWeeks || 0) + 1);
+    saveState(); updateRotateStatus();
+  });
 
   document.getElementById('installBtn').addEventListener('click', async ()=>{
     if(!deferredInstall) return;
