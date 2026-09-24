@@ -407,6 +407,37 @@
         <button class="mini-btn" id="notifBtn">Activar</button>
       </div>
 
+      <div class="set-line stack">
+        <div class="set-label">
+          Descanso automático de 45 s
+          <small>Al marcar la serie arranca solo el temporizador, sin tocar nada más.</small>
+        </div>
+        <div class="seg plan-seg" id="autoRestSeg">
+          <button type="button" data-mode="off">Apagado</button>
+          <button type="button" data-mode="first">1ª serie</button>
+          <button type="button" data-mode="all">Todas</button>
+        </div>
+      </div>
+
+      <div class="set-line">
+        <div class="set-label">
+          Alarma fuerte al terminar el descanso
+          <small>Suena al tope que permite el navegador; los demás avisos quedan al volumen normal.</small>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="loudAlarmToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="set-line">
+        <div class="set-label">
+          Probar el sonido de la alarma
+          <small>Una app web no puede cambiar el volumen del celular: súbelo tú antes de entrenar y prueba aquí cómo se oye.</small>
+        </div>
+        <button type="button" class="mini-btn" id="testAlarmBtn">🔊 Probar</button>
+      </div>
+
       <div class="set-line">
         <div class="set-label">
           Unidad de peso
@@ -507,7 +538,8 @@
 
     <footer class="hint">
       Fotos de ejercicios: free-exercise-db (dominio público).<br>
-      Se guardan solas la primera vez que las ves, para funcionar sin señal.
+      Se guardan solas la primera vez que las ves, para funcionar sin señal.<br>
+      <b id="appVersion"></b>
     </footer>
   </section>
 
@@ -737,7 +769,7 @@ function defaultState(){
   return { warmupMin:12, cycle:0, keepAwake:true, bgAlarm:true, unit:'kg',
            progress:{}, weightLog:{}, doneLog:{}, bodyWeight:{}, reportSeen:{},
            planStart:null, lastRotation:null, rotateAlertSeen:null,
-           weekDaysGoal:2, bonusWeeks:0, pendingAlarm:null };
+           weekDaysGoal:2, bonusWeeks:0, autoRest:'first', loudRestAlarm:true, pendingAlarm:null };
 }
 function loadState(){
   try{
@@ -780,7 +812,9 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
+const APP_VERSION = '1.5';          // se muestra abajo en Calentamiento, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
+const AUTO_REST_SECONDS = 45;       // descanso que arranca solo al marcar una serie
 
 /* Días cumplidos (75%+ de sus series) en esa semana. */
 function trainedDaysInWeek(week){
@@ -1099,6 +1133,10 @@ function stepWeight(card, dir){
   refreshWeightUI(ref);
 }
 
+function updateAutoRestSeg(){
+  document.querySelectorAll('#autoRestSeg button').forEach(b =>
+    b.classList.toggle('on', b.dataset.mode === (state.autoRest || 'first')));
+}
 function updateUnitSeg(){
   document.querySelectorAll('#unitSeg button').forEach(b =>
     b.classList.toggle('on', b.dataset.unit === state.unit));
@@ -1526,16 +1564,35 @@ function fmtMMSS(sec){
    suena a la hora exacta aunque Android congele el JavaScript por tener la
    pantalla apagada. Un tono casi inaudible mantiene el audio vivo mientras
    corre el temporizador.
+
+   OJO con el volumen: ninguna página web (ni el APK, que por dentro es la
+   misma web) puede cambiar el volumen del celular; eso solo lo hace una app
+   nativa. Lo que sí controlamos es el volumen DENTRO de la app: al terminar
+   el descanso la alarma suena al tope (ALARM_GAIN_LOUD) y el resto de avisos
+   se queda en el volumen de siempre (ALARM_GAIN_NORMAL).
    ========================================================================= */
-let audioCtx = null, keepAliveOsc = null, scheduled = [];
+let audioCtx = null, masterOut = null, keepAliveOsc = null, scheduled = [];
+
+const ALARM_GAIN_NORMAL = 0.32;   // el volumen que tenía la alarma antes
+const ALARM_GAIN_LOUD   = 0.95;   // fin del descanso: lo más fuerte que permite el navegador
+function restAlarmGain(){ return state.loudRestAlarm === false ? ALARM_GAIN_NORMAL : ALARM_GAIN_LOUD; }
 
 function ensureAudio(){
   try{
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // limitador: deja subir el volumen sin que el pitido sature y suene sucio
+      const comp = audioCtx.createDynamicsCompressor();
+      comp.threshold.value = -6; comp.ratio.value = 12;
+      comp.attack.value = 0.003; comp.release.value = 0.15;
+      comp.connect(audioCtx.destination);
+      masterOut = comp;
+    }
     if(audioCtx.state === 'suspended') audioCtx.resume();
   }catch(e){ audioCtx = null; }
   return audioCtx;
 }
+function audioOut(){ return masterOut || (audioCtx && audioCtx.destination); }
 function startAudioKeepAlive(){
   if(!state.bgAlarm) return;
   const ctx = ensureAudio();
@@ -1544,7 +1601,7 @@ function startAudioKeepAlive(){
     const osc = ctx.createOscillator(), g = ctx.createGain();
     osc.frequency.value = 40;
     g.gain.value = 0.0015;            // casi silencio: mantiene vivo el audio
-    osc.connect(g).connect(ctx.destination);
+    osc.connect(g).connect(audioOut());
     osc.start();
     keepAliveOsc = osc;
   }catch(e){}
@@ -1552,25 +1609,43 @@ function startAudioKeepAlive(){
 function stopAudioKeepAlive(){
   if(keepAliveOsc){ try{ keepAliveOsc.stop(); }catch(e){} keepAliveOsc = null; }
 }
-/* Programa la secuencia de pitidos para dentro de N segundos. */
-function scheduleAlarmSound(inSeconds){
+/* Programa la secuencia de pitidos para dentro de N segundos.
+   En modo fuerte suenan dos tonos a la vez (se oye más con el celular lejos). */
+function scheduleAlarmSound(inSeconds, gain = ALARM_GAIN_NORMAL){
   const ctx = ensureAudio();
   if(!ctx) return;
   cancelScheduledAlarm();
   const t0 = ctx.currentTime + Math.max(0, inSeconds);
+  const fuerte = gain > ALARM_GAIN_NORMAL;
   for(let i=0;i<6;i++){
-    try{
-      const osc = ctx.createOscillator(), g = ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.value = (i % 2) ? 700 : 1050;
-      const start = t0 + i*0.32;
-      g.gain.setValueAtTime(0.0001, start);
-      g.gain.exponentialRampToValueAtTime(0.32, start + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
-      osc.connect(g).connect(ctx.destination);
-      osc.start(start); osc.stop(start + 0.26);
-      scheduled.push(osc);
-    }catch(e){}
+    const start = t0 + i*0.32;
+    const base = (i % 2) ? 700 : 1050;
+    const tonos = fuerte ? [base, base*2] : [base];
+    tonos.forEach((hz, n) => {
+      try{
+        const osc = ctx.createOscillator(), g = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = hz;
+        const vol = n === 0 ? gain : gain * 0.45;
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(vol, start + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
+        osc.connect(g).connect(audioOut());
+        osc.start(start); osc.stop(start + 0.26);
+        scheduled.push(osc);
+      }catch(e){}
+    });
+  }
+}
+/* Suena la alarma ahora mismo, para probar el volumen del celular. */
+function testAlarm(){
+  ensureAudio();
+  scheduleAlarmSound(0, restAlarmGain());
+  vibrate([300,120,300]);
+  if(restTimer.running){   // no perder la alarma del descanso en curso
+    setTimeout(()=>{
+      if(restTimer.running) scheduleAlarmSound(Math.max(0, (restTimer.endAt - Date.now())/1000), restAlarmGain());
+    }, 2600);
   }
 }
 function cancelScheduledAlarm(){
@@ -1944,7 +2019,7 @@ function startWarmup(){
   warmupGoto.classList.remove('show');
   warmupTimer.endAt = Date.now() + warmupTimer.remaining*1000;
   warmupTimer.intervalId = setInterval(warmupTick, 250);
-  scheduleAlarmSound(warmupTimer.remaining);
+  scheduleAlarmSound(warmupTimer.remaining, ALARM_GAIN_NORMAL);   // calentamiento: volumen normal
   setPendingAlarm('warmup', warmupTimer.endAt);
   startAudioKeepAlive();
   acquireWakeLock();
@@ -1988,7 +2063,7 @@ function startRest(seconds){
   restMsgLabel.textContent = 'Descansando… vuelve a la máquina cuando termine.';
   restTimer.endAt = Date.now() + seconds*1000;
   restTimer.running = true;
-  scheduleAlarmSound(seconds);
+  scheduleAlarmSound(seconds, restAlarmGain());   // fin del descanso: alarma fuerte
   setPendingAlarm('rest', restTimer.endAt);
   startAudioKeepAlive();
   acquireWakeLock();
@@ -2048,6 +2123,7 @@ function init(){
   if(!state.lastRotation){ state.lastRotation = state.planStart; saveState(); }
   renderAll();
   updatePlanUI();
+  document.getElementById('appVersion').textContent = 'Versión ' + APP_VERSION;
   setWarmupMinutes(state.warmupMin || 12);
   renderWarmupRing();
 
@@ -2096,6 +2172,20 @@ function init(){
     if(!state.bgAlarm) stopAudioKeepAlive();
   });
   document.getElementById('notifBtn').addEventListener('click', askNotifPermission);
+
+  document.getElementById('loudAlarmToggle').checked = state.loudRestAlarm !== false;
+  document.getElementById('loudAlarmToggle').addEventListener('change', e=>{
+    state.loudRestAlarm = e.target.checked; saveState();
+    if(restTimer.running) scheduleAlarmSound(Math.max(0,(restTimer.endAt - Date.now())/1000), restAlarmGain());
+  });
+  document.getElementById('testAlarmBtn').addEventListener('click', testAlarm);
+
+  updateAutoRestSeg();
+  document.getElementById('autoRestSeg').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-mode]');
+    if(!b) return;
+    state.autoRest = b.dataset.mode; saveState(); updateAutoRestSeg();
+  });
   document.getElementById('rotateBtn').addEventListener('click', openRotateModal);
 
   // cuántos días hacen una semana cumplida
@@ -2143,6 +2233,11 @@ function init(){
     saveState();
     refreshDayProgress(DAYS.find(d=>d.id===day));
     updateRotateStatus();            // marcar series puede completar una semana entrenada
+    // descanso automático: al marcar la serie arranca solo el temporizador de 45s
+    if(e.target.checked && state.autoRest !== 'off' &&
+       (state.autoRest === 'all' || Number(set) === 0)){
+      startRest(AUTO_REST_SECONDS);
+    }
   });
 
   // botones: reporte de pesos, reiniciar día (con reporte) y − / + del peso

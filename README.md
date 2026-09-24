@@ -7,6 +7,8 @@ App web (PWA) de rutina de gimnasio de 5 días, pensada para el celular.
 - **Rutina de 5 días** balanceada por grupo muscular, con duración calculada entre 1h30 y 2h.
 - **Fotos reales** de cada ejercicio ([free-exercise-db](https://github.com/yuhonas/free-exercise-db), dominio público), con dos tomas alternándose para mostrar el movimiento.
 - **Temporizador de calentamiento** (10 / 12 / 15 min) y **temporizador de descanso** (45s / 1min / 2min).
+- **Descanso automático de 45 s**: al marcar una serie arranca solo el temporizador. En Ajustes se elige *Apagado · 1ª serie · Todas* (por defecto, 1ª serie).
+- **Alarma fuerte al terminar el descanso**: suena al tope que permite el navegador (doble tono, con limitador para que no sature); el resto de avisos queda al volumen de siempre. Hay un botón **🔊 Probar** para oírla. Ojo: **ninguna app web puede cambiar el volumen del celular** — eso solo lo haría una app nativa —, así que el volumen multimedia hay que subirlo a mano.
 - **Alarma con pantalla apagada**: el pitido se programa por adelantado en el AudioContext, así suena aunque el celular esté bloqueado.
 - **Pantalla siempre encendida** mientras entrenas (Screen Wake Lock API).
 - **Seguimiento de series** con checkboxes, guardado en `localStorage`.
