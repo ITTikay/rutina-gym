@@ -409,8 +409,8 @@
 
       <div class="set-line stack">
         <div class="set-label">
-          Descanso automático de 45 s
-          <small>Al marcar la serie arranca solo el temporizador, sin tocar nada más.</small>
+          Descanso automático
+          <small>Al marcar una serie arranca solo: 45 s entre series y 1 minuto cuando completas todas las series del ejercicio.</small>
         </div>
         <div class="seg plan-seg" id="autoRestSeg">
           <button type="button" data-mode="off">Apagado</button>
@@ -422,7 +422,7 @@
       <div class="set-line">
         <div class="set-label">
           Alarma fuerte al terminar el descanso
-          <small>Suena al tope que permite el navegador; los demás avisos quedan al volumen normal.</small>
+          <small>Suena al tope que permite el navegador y se repite cada 5 s hasta que la apagas; los demás avisos quedan al volumen normal.</small>
         </div>
         <label class="switch">
           <input type="checkbox" id="loudAlarmToggle">
@@ -812,9 +812,12 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '1.5';          // se muestra abajo en Calentamiento, para confirmar actualizaciones
+const APP_VERSION = '1.6';          // se muestra abajo en Calentamiento, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
-const AUTO_REST_SECONDS = 45;       // descanso que arranca solo al marcar una serie
+const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
+const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
+const ALARM_REPEAT_SECONDS = 5;         // la alarma insiste cada 5 s hasta que la apagas
+const ALARM_REPEAT_COUNT = 24;          // ~2 minutos de recordatorios
 
 /* Días cumplidos (75%+ de sus series) en esa semana. */
 function trainedDaysInWeek(week){
@@ -1610,31 +1613,56 @@ function stopAudioKeepAlive(){
   if(keepAliveOsc){ try{ keepAliveOsc.stop(); }catch(e){} keepAliveOsc = null; }
 }
 /* Programa la secuencia de pitidos para dentro de N segundos.
-   En modo fuerte suenan dos tonos a la vez (se oye más con el celular lejos). */
-function scheduleAlarmSound(inSeconds, gain = ALARM_GAIN_NORMAL){
+   En modo fuerte suenan dos tonos a la vez (se oye más con el celular lejos).
+   Con "repeticiones" la alarma vuelve a sonar cada ALARM_REPEAT_SECONDS: todas
+   quedan programadas por adelantado, así insiste aunque la pantalla esté
+   apagada y Android haya congelado el JavaScript. */
+function scheduleAlarmSound(inSeconds, gain = ALARM_GAIN_NORMAL, repeticiones = 1){
   const ctx = ensureAudio();
   if(!ctx) return;
   cancelScheduledAlarm();
   const t0 = ctx.currentTime + Math.max(0, inSeconds);
   const fuerte = gain > ALARM_GAIN_NORMAL;
-  for(let i=0;i<6;i++){
-    const start = t0 + i*0.32;
-    const base = (i % 2) ? 700 : 1050;
-    const tonos = fuerte ? [base, base*2] : [base];
-    tonos.forEach((hz, n) => {
-      try{
-        const osc = ctx.createOscillator(), g = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.value = hz;
-        const vol = n === 0 ? gain : gain * 0.45;
-        g.gain.setValueAtTime(0.0001, start);
-        g.gain.exponentialRampToValueAtTime(vol, start + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
-        osc.connect(g).connect(audioOut());
-        osc.start(start); osc.stop(start + 0.26);
-        scheduled.push(osc);
-      }catch(e){}
-    });
+  for(let r = 0; r < repeticiones; r++){
+    const tr = t0 + r * ALARM_REPEAT_SECONDS;
+    const pitidos = r === 0 ? 6 : 3;      // el primer aviso es largo; los recordatorios, cortos
+    for(let i = 0; i < pitidos; i++){
+      const start = tr + i*0.32;
+      const base = (i % 2) ? 700 : 1050;
+      const tonos = fuerte ? [base, base*2] : [base];
+      tonos.forEach((hz, n) => {
+        try{
+          const osc = ctx.createOscillator(), g = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.value = hz;
+          const vol = n === 0 ? gain : gain * 0.45;
+          g.gain.setValueAtTime(0.0001, start);
+          g.gain.exponentialRampToValueAtTime(vol, start + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
+          osc.connect(g).connect(audioOut());
+          osc.start(start); osc.stop(start + 0.26);
+          scheduled.push(osc);
+        }catch(e){}
+      });
+    }
+  }
+}
+
+/* Vibración que acompaña a la alarma repetida (solo si el JS está vivo). */
+let alertVibeId = null;
+function startAlertVibration(){
+  stopAlertVibration();
+  vibrate([400,150,400,150,600]);
+  alertVibeId = setInterval(()=> vibrate([400,150,400]), ALARM_REPEAT_SECONDS*1000);
+  setTimeout(stopAlertVibration, ALARM_REPEAT_SECONDS*ALARM_REPEAT_COUNT*1000);
+}
+function stopAlertVibration(){
+  if(alertVibeId){ clearInterval(alertVibeId); alertVibeId = null; }
+}
+/* Apaga el tono que mantiene vivo el audio, pero solo si ya no hace falta. */
+function stopKeepAliveIfIdle(){
+  if(!restTimer.running && !warmupTimer.running && !restBar.classList.contains('alert')){
+    stopAudioKeepAlive();
   }
 }
 /* Suena la alarma ahora mismo, para probar el volumen del celular. */
@@ -1728,6 +1756,8 @@ function checkPendingAlarm(){
     restQuick.style.display = 'none';
     restTimeLabel.textContent = '00:00';
     restMsgLabel.textContent = `¡Descanso terminado ${hace}! Vuelve a la máquina 💪`;
+    startAlertVibration();
+    return;
   }else{
     warmupStateLabel.textContent = '¡Listo para entrenar!';
     warmupGoto.classList.add('show');
@@ -2057,18 +2087,22 @@ function startRest(seconds){
   ensureAudio();
   askNotifPermission();
   stopRestInterval();
+  stopAlertVibration();
   restBar.classList.remove('alert');
   restQuick.style.display = 'none';
   restRunning.classList.add('show');
   restMsgLabel.textContent = 'Descansando… vuelve a la máquina cuando termine.';
   restTimer.endAt = Date.now() + seconds*1000;
   restTimer.running = true;
-  scheduleAlarmSound(seconds, restAlarmGain());   // fin del descanso: alarma fuerte
+  // alarma fuerte al terminar + recordatorios cada 5 s hasta que la apagues
+  scheduleAlarmSound(seconds, restAlarmGain(), ALARM_REPEAT_COUNT);
   setPendingAlarm('rest', restTimer.endAt);
   startAudioKeepAlive();
   acquireWakeLock();
   restTick();
   restTimer.intervalId = setInterval(restTick, 250);
+  // si nadie apaga la alarma, el audio deja de mantenerse vivo al acabar los recordatorios
+  setTimeout(stopKeepAliveIfIdle, (seconds + ALARM_REPEAT_SECONDS*ALARM_REPEAT_COUNT + 5)*1000);
 }
 function restTick(){
   const remaining = Math.max(0, (restTimer.endAt - Date.now())/1000);
@@ -2077,10 +2111,9 @@ function restTick(){
     stopRestInterval();
     restTimer.running = false;
     clearPendingAlarm();
-    stopAudioKeepAlive();
     restBar.classList.add('alert');
-    restMsgLabel.textContent = '¡Descanso terminado! Vuelve a la máquina 💪';
-    vibrate([400,150,400,150,600]);
+    restMsgLabel.textContent = '¡Descanso terminado! Suena cada 5 s hasta que toques Cancelar 💪';
+    startAlertVibration();
     showAlarmNotification('¡Descanso terminado! 💪', 'Vuelve a la máquina.');
   }
 }
@@ -2088,6 +2121,7 @@ function cancelRest(){
   stopRestInterval();
   restTimer.running = false;
   cancelScheduledAlarm();
+  stopAlertVibration();
   clearPendingAlarm();
   stopAudioKeepAlive();
   restBar.classList.remove('alert');
@@ -2233,10 +2267,15 @@ function init(){
     saveState();
     refreshDayProgress(DAYS.find(d=>d.id===day));
     updateRotateStatus();            // marcar series puede completar una semana entrenada
-    // descanso automático: al marcar la serie arranca solo el temporizador de 45s
-    if(e.target.checked && state.autoRest !== 'off' &&
-       (state.autoRest === 'all' || Number(set) === 0)){
-      startRest(AUTO_REST_SECONDS);
+    // descanso automático al marcar una serie:
+    //  · si con esa serie terminaste el ejercicio completo → 1 minuto (cambio de máquina)
+    //  · si todavía te faltan series → 45 segundos
+    if(e.target.checked && state.autoRest !== 'off'){
+      const exObj = DAYS.find(d=>d.id===day).exercises[Number(ex)];
+      let hechas = 0;
+      for(let s=0; s<exObj.sets; s++) if(state.progress[day][`${ex}_${s}`]) hechas++;
+      if(hechas >= exObj.sets) startRest(AUTO_REST_EXERCISE_SECONDS);
+      else if(state.autoRest === 'all' || Number(set) === 0) startRest(AUTO_REST_SECONDS);
     }
   });
 
