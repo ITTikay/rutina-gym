@@ -344,6 +344,36 @@
   .rest-bar.show{display:block;}
   .rest-bar.alert{animation:alertFlash .5s ease infinite;}
   @keyframes alertFlash{0%,100%{background:var(--bg-elevated);} 50%{background:var(--danger);}}
+
+  /* al terminar el descanso parpadea toda la pantalla, al mismo ritmo que el reloj */
+  .screen-flash{
+    position:fixed; inset:0; z-index:25; pointer-events:none;
+    background:var(--danger); opacity:0; display:none;
+  }
+  .screen-flash.on{display:block; animation:screenFlash .5s ease infinite;}
+  @keyframes screenFlash{0%,100%{opacity:0;} 50%{opacity:.5;}}
+
+  /* equipo no disponible en el gimnasio */
+  .avail-btn{
+    display:block; width:100%; margin-top:10px; background:transparent;
+    border:1px solid var(--border); color:var(--text-faint);
+    padding:9px 12px; border-radius:var(--radius-sm); font-size:12px; font-weight:700;
+  }
+  .avail-btn:active{border-color:var(--danger); color:var(--danger);}
+  .avail-btn.flagged{border-color:#fbbf24; color:#fbbf24;}
+  .ex-card.flagged-card{border-color:#fbbf2466;}
+  .noequip-row small{display:block; font-size:10.5px; margin-top:2px;}
+  .noequip-row small.pend{color:#fbbf24;}
+  .noequip-row small.gone{color:var(--text-faint);}
+  .swap-note{font-size:11.5px; color:var(--accent2); margin-top:6px; line-height:1.45;}
+  .swap-note.warn-note{color:#fbbf24;}
+  #noEquipList{display:flex; flex-direction:column; gap:7px; width:100%;}
+  .noequip-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--card-alt); border:1px solid var(--border);
+    border-radius:var(--radius-sm); padding:8px 11px; font-size:12.5px;
+  }
+  .noequip-row span{flex:1; min-width:0;}
   .rest-quick{display:flex; gap:8px;}
   .rest-quick button{
     flex:1; background:var(--card); border:1px solid var(--border); color:var(--text);
@@ -462,6 +492,14 @@
         </div>
       </div>
 
+      <div class="set-line stack" id="noEquipBox" hidden>
+        <div class="set-label">
+          Equipos que no hay en tu gimnasio (<b id="noEquipCount">0</b>)
+          <small>Los marcados siguen en la rutina hasta que rotes; al rotar se eliminan y no vuelven a salir nunca.</small>
+        </div>
+        <div id="noEquipList"></div>
+      </div>
+
       <div class="cycle-box">
         <div class="cycle-info">
           Rotación <b id="cycleNum">1</b> · Variante <b id="variantLetter">A</b>
@@ -572,6 +610,8 @@
 </main>
 
 <!-- ===== Temporizador de descanso (solo dentro de un día) ===== -->
+<div class="screen-flash" id="screenFlash" aria-hidden="true"></div>
+
 <div class="rest-bar" id="restBar">
   <div class="rest-quick" id="restQuick">
     <button data-sec="45">⏱ 45s</button>
@@ -769,7 +809,8 @@ function defaultState(){
   return { warmupMin:12, cycle:0, keepAwake:true, bgAlarm:true, unit:'kg',
            progress:{}, weightLog:{}, doneLog:{}, bodyWeight:{}, reportSeen:{},
            planStart:null, lastRotation:null, rotateAlertSeen:null,
-           weekDaysGoal:2, bonusWeeks:0, autoRest:'first', loudRestAlarm:true, pendingAlarm:null };
+           weekDaysGoal:2, bonusWeeks:0, autoRest:'first', loudRestAlarm:true,
+           unavailable:{}, removed:{}, pendingAlarm:null };
 }
 function loadState(){
   try{
@@ -794,11 +835,34 @@ for(const d of DAYS){ if(!state.progress[d.id]) state.progress[d.id] = {}; }
    ========================================================================= */
 const VARIANTS = ['A','B','C'];
 function variantIdx(){ return state.cycle % VARIANTS.length; }
+
+/* Las 3 variantes de un casillero muscular, en orden A/B/C. */
+function variantsOf(ex){
+  return [ex].concat((ex.alts || []).map(a =>
+    Object.assign({}, ex, {name:a.name, ref:a.ref, tip:a.tip})));
+}
+/* Dos estados para un equipo que no hay en el gimnasio:
+     · MARCADO (state.unavailable): sigue en la rutina hasta la próxima rotación
+     · ELIMINADO (state.removed): al rotar sale de la base y ya no vuelve nunca */
+function isFlagged(ref){ return !!(state.unavailable && state.unavailable[ref]); }
+function isRemoved(ref){ return !!(state.removed && state.removed[ref]); }
+
+/* Variante que tocaría por el ciclo, sin mirar si tienes la máquina. */
+function cycleExercise(ex){
+  const opts = variantsOf(ex);
+  return opts[variantIdx() % opts.length];
+}
+/* Ejercicio que se muestra: la variante del ciclo, saltando las que ya se
+   eliminaron de la base. Las marcadas (pero aún no eliminadas) siguen
+   apareciendo: se van recién en la próxima rotación. */
 function activeExercise(ex){
-  const v = variantIdx();
-  if(v === 0) return ex;
-  const alt = ex.alts && ex.alts[v-1];
-  return alt ? Object.assign({}, ex, {name:alt.name, ref:alt.ref, tip:alt.tip}) : ex;
+  const opts = variantsOf(ex);
+  const v = variantIdx() % opts.length;
+  for(let i = 0; i < opts.length; i++){
+    const cand = opts[(v + i) % opts.length];
+    if(!isRemoved(cand.ref)) return cand;
+  }
+  return opts[v];                    // las tres eliminadas: se queda con la del ciclo
 }
 function orderedDays(){
   const off = state.cycle % DAYS.length;
@@ -812,7 +876,7 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '1.6';          // se muestra abajo en Calentamiento, para confirmar actualizaciones
+const APP_VERSION = '1.8';          // se muestra abajo en Calentamiento, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
 const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
 const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
@@ -858,6 +922,9 @@ function prevVariantList(day){
 }
 
 function doRotate(){
+  // al rotar, los equipos marcados salen de la base: no vuelven en ninguna rotación
+  Object.keys(state.unavailable || {}).forEach(ref => { state.removed[ref] = true; });
+  state.unavailable = {};
   state.cycle = (state.cycle + 1) % (VARIANTS.length * DAYS.length);
   state.lastRotation = weekKey();
   state.rotateAlertSeen = null;
@@ -1648,6 +1715,13 @@ function scheduleAlarmSound(inSeconds, gain = ALARM_GAIN_NORMAL, repeticiones = 
   }
 }
 
+/* Parpadeo de toda la pantalla, al mismo ritmo que la barra del temporizador. */
+function setScreenFlash(on){
+  restBar.classList.toggle('alert', on);
+  const fl = document.getElementById('screenFlash');
+  if(fl) fl.classList.toggle('on', on);
+}
+
 /* Vibración que acompaña a la alarma repetida (solo si el JS está vivo). */
 let alertVibeId = null;
 function startAlertVibration(){
@@ -1751,7 +1825,7 @@ function checkPendingAlarm(){
   const hace = mins > 0 ? `hace ${mins} min ${secs}s` : `hace ${secs}s`;
   if(p.type === 'rest'){
     if(restTimer.running){ stopRestInterval(); restTimer.running = false; }
-    restBar.classList.add('alert');
+    setScreenFlash(true);
     restRunning.classList.add('show');
     restQuick.style.display = 'none';
     restTimeLabel.textContent = '00:00';
@@ -1781,7 +1855,12 @@ function animMarkup(type){
 }
 function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
 
-function exerciseCard(day, ex, idx){
+function exerciseCard(day, ex, idx, natural){
+  // si la variante del ciclo no la tienes, se avisa cuál reemplazó
+  const sustituye = natural && natural.ref !== ex.ref
+    ? `<p class="swap-note">🔄 Reemplaza a <b>${natural.name}</b> (lo quitaste porque no hay esa máquina)</p>` : '';
+  const marcado = isFlagged(ex.ref)
+    ? `<p class="swap-note warn-note">🚫 Marcado: no hay esta máquina. Sigue hasta la próxima rotación y ahí se quita para siempre.</p>` : '';
   const setsHtml = Array.from({length:ex.sets}, (_,s)=>`
     <label class="set-check">
       <input type="checkbox" class="set-input" data-day="${day.id}" data-ex="${idx}" data-set="${s}">
@@ -1791,7 +1870,7 @@ function exerciseCard(day, ex, idx){
     ? `${ex.sets} series × ${ex.reps} seg · Descanso ${ex.rest}s`
     : `${ex.sets} series × ${ex.reps} reps · Descanso ${ex.rest}s`;
   return `
-    <article class="ex-card" data-day="${day.id}" data-ex="${idx}" data-ref="${ex.ref}">
+    <article class="ex-card${isFlagged(ex.ref) ? ' flagged-card' : ''}" data-day="${day.id}" data-ex="${idx}" data-ref="${ex.ref}">
       <div class="ex-photo-wrap">
         <span class="photo-badge">Foto real</span>
         <img class="ex-photo f0" alt="${escapeAttr(ex.name)} - posición inicial" data-src="${EXDB}${ex.ref}/0.jpg" onerror="handleExPhotoError(this)">
@@ -1805,6 +1884,9 @@ function exerciseCard(day, ex, idx){
         <h3 class="ex-name">${ex.name}</h3>
         <p class="ex-meta">${metaTxt}</p>
         <p class="ex-tip">💡 ${ex.tip}</p>
+        ${sustituye}${marcado}
+        <button type="button" class="avail-btn${isFlagged(ex.ref) ? ' flagged' : ''}" data-noequip="${ex.ref}">${
+          isFlagged(ex.ref) ? '↩ Sí tengo esta máquina' : '🚫 No tengo esta máquina'}</button>
         <div class="weight-row">
           <span class="w-label">Peso</span>
           <button type="button" class="w-step" data-dir="-1" aria-label="Bajar peso">−</button>
@@ -1817,6 +1899,48 @@ function exerciseCard(day, ex, idx){
         <div class="set-row">${setsHtml}</div>
       </div>
     </article>`;
+}
+
+/* =========================================================================
+   EQUIPOS QUE NO HAY EN TU GIMNASIO
+   Al marcar uno, el ejercicio SIGUE en la rutina (para no cambiarte el
+   entrenamiento a mitad de ciclo). En la próxima rotación se elimina de la
+   base y ya no aparece en ninguna rotación futura.
+   Todo se guarda por "ref", así que no depende de la posición.
+   ========================================================================= */
+function redrawKeepingView(){
+  const vista = document.querySelector('.view.active')?.id.replace('view-','') || 'warmup';
+  saveState();
+  renderAll();
+  showView(vista);
+}
+function toggleEquipFlag(ref){
+  if(isFlagged(ref)) delete state.unavailable[ref];
+  else state.unavailable[ref] = true;
+  redrawKeepingView();
+}
+function restoreAvailable(ref){
+  delete state.unavailable[ref];
+  delete state.removed[ref];
+  redrawKeepingView();
+}
+function updateUnavailableList(){
+  const box = document.getElementById('noEquipBox');
+  if(!box) return;
+  const marcados = Object.keys(state.unavailable || {});
+  const eliminados = Object.keys(state.removed || {});
+  const total = marcados.length + eliminados.length;
+  if(!total){ box.hidden = true; return; }
+  box.hidden = false;
+  document.getElementById('noEquipCount').textContent = total;
+  const fila = (r, estado, clase) => `
+    <div class="noequip-row">
+      <span>${(REF_INFO[r] && REF_INFO[r].name) || r}<small class="${clase}">${estado}</small></span>
+      <button type="button" class="mini-btn" data-restore="${r}">↩ Sí tengo</button>
+    </div>`;
+  document.getElementById('noEquipList').innerHTML =
+    marcados.map(r => fila(r, 'sigue hasta la próxima rotación', 'pend')).join('') +
+    eliminados.map(r => fila(r, 'eliminado de la base', 'gone')).join('');
 }
 
 /* Si una foto no carga (sin internet, GitHub caído) se muestra el diagrama. */
@@ -1860,9 +1984,8 @@ function buildDayView(day, position){
     <button class="reset-day-btn" data-reset="${day.id}">Reiniciar progreso de hoy</button>
   `;
   daysContainer.appendChild(wrap);
-  const list = day.exercises.map(activeExercise);
-  document.getElementById('exlist-' + day.id).innerHTML =
-    list.map((ex,i) => exerciseCard(day, ex, i)).join('');
+  document.getElementById('exlist-' + day.id).innerHTML = day.exercises
+    .map((ex,i) => exerciseCard(day, activeExercise(ex), i, cycleExercise(ex))).join('');
   // la duración se calcula con los datos reales (no cambia entre variantes)
   document.getElementById('dur-' + day.id).textContent =
     formatDurationLong(dayDurationSeconds(day, state.warmupMin));
@@ -1934,6 +2057,7 @@ function renderAll(){
   document.getElementById('cycleHint').textContent = 'Orden actual: ' + order;
 
   updateRotateStatus();
+  updateUnavailableList();
 }
 
 /* Aviso de rotación en Ajustes (se recalcula al marcar series). */
@@ -1965,7 +2089,9 @@ function showView(id){
   const target = document.getElementById('view-' + id);
   if(target) target.classList.add('active');
   const isDay = DAYS.some(d=>d.id===id);
-  document.getElementById('restBar').classList.toggle('show', isDay);
+  // la barra se queda visible si la alarma está sonando, para poder apagarla
+  // desde cualquier pestaña
+  document.getElementById('restBar').classList.toggle('show', isDay || restBar.classList.contains('alert'));
   if(isDay){
     loadDayImages(id);      // las fotos de este día se piden a la red recién ahora
     maybeAutoReport(id);    // primera vez en la semana: pesos anteriores y metas
@@ -2088,7 +2214,7 @@ function startRest(seconds){
   askNotifPermission();
   stopRestInterval();
   stopAlertVibration();
-  restBar.classList.remove('alert');
+  setScreenFlash(false);
   restQuick.style.display = 'none';
   restRunning.classList.add('show');
   restMsgLabel.textContent = 'Descansando… vuelve a la máquina cuando termine.';
@@ -2111,7 +2237,7 @@ function restTick(){
     stopRestInterval();
     restTimer.running = false;
     clearPendingAlarm();
-    restBar.classList.add('alert');
+    setScreenFlash(true);
     restMsgLabel.textContent = '¡Descanso terminado! Suena cada 5 s hasta que toques Cancelar 💪';
     startAlertVibration();
     showAlarmNotification('¡Descanso terminado! 💪', 'Vuelve a la máquina.');
@@ -2124,7 +2250,7 @@ function cancelRest(){
   stopAlertVibration();
   clearPendingAlarm();
   stopAudioKeepAlive();
-  restBar.classList.remove('alert');
+  setScreenFlash(false);
   restQuick.style.display = 'flex';
   restRunning.classList.remove('show');
 }
@@ -2214,6 +2340,11 @@ function init(){
   });
   document.getElementById('testAlarmBtn').addEventListener('click', testAlarm);
 
+  document.getElementById('noEquipList').addEventListener('click', e=>{
+    const b = e.target.closest('[data-restore]');
+    if(b) restoreAvailable(b.dataset.restore);
+  });
+
   updateAutoRestSeg();
   document.getElementById('autoRestSeg').addEventListener('click', e=>{
     const b = e.target.closest('button[data-mode]');
@@ -2285,6 +2416,8 @@ function init(){
     if(reportBtn){ openWeightReport(reportBtn.dataset.report, false); return; }
     const resetBtn = e.target.closest('[data-reset]');
     if(resetBtn){ openWeightReport(resetBtn.dataset.reset, true); return; }
+    const noEquip = e.target.closest('[data-noequip]');
+    if(noEquip){ toggleEquipFlag(noEquip.dataset.noequip); return; }
     const stepBtn = e.target.closest('.w-step');
     if(stepBtn) stepWeight(stepBtn.closest('.ex-card'), Number(stepBtn.dataset.dir));
   });
