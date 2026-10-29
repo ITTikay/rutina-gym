@@ -76,6 +76,23 @@
     padding:14px 16px; margin:8px 0 14px;
   }
   .settings-card h3{font-size:14px; font-weight:800; margin-bottom:10px;}
+
+  /* selector de objetivo */
+  .goal-card{border-color:#22d3ee55;}
+  .goal-hint{font-size:11.5px; color:var(--text-faint); line-height:1.5; margin-bottom:11px;}
+  .goal-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .goal-opt{
+    background:var(--card-alt); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:11px 6px; text-align:center; color:var(--text); font-family:inherit;
+  }
+  .goal-opt .ico{display:block; font-size:21px; line-height:1.2;}
+  .goal-opt .nom{display:block; font-size:11.5px; font-weight:800; margin-top:4px; line-height:1.25;}
+  .goal-opt.on{background:#22d3ee1f; border-color:var(--accent2); color:var(--accent2);}
+  .goal-note{
+    font-size:12px; color:var(--text-dim); line-height:1.5; margin-top:11px;
+    background:var(--card-alt); border-radius:var(--radius-sm); padding:10px 12px;
+  }
+  .goal-tag{color:var(--accent2); font-weight:700;}
   .set-line{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid var(--border);}
   .set-line:first-of-type{border-top:none;}
   .set-label{font-size:13px; line-height:1.35;}
@@ -401,8 +418,82 @@
 <nav class="tabs" id="tabs"></nav>
 
 <main>
-  <!-- ===== Vista: Calentamiento + Ajustes ===== -->
+  <!-- ===== Vista principal: solo el calentamiento ===== -->
   <section class="view" id="view-warmup">
+    <div class="warmup-card">
+      <h2>Calentamiento</h2>
+      <p class="hint">Elige la duración y prepara el cuerpo antes de ir a las pesas.</p>
+
+      <div class="ring-wrap">
+        <svg viewBox="0 0 220 220">
+          <defs>
+            <linearGradient id="gradAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#ff6a3d"/>
+              <stop offset="100%" stop-color="#ff8f5c"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-bg" cx="110" cy="110" r="96"></circle>
+          <circle class="ring-fg" id="warmupRing" cx="110" cy="110" r="96"></circle>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-time" id="warmupTimeLabel">12:00</div>
+          <div class="ring-label" id="warmupStateLabel">Listo para iniciar</div>
+        </div>
+      </div>
+
+      <div class="warmup-select" id="warmupSelect">
+        <button class="pill-choice" data-min="10">10 min</button>
+        <button class="pill-choice selected" data-min="12">12 min</button>
+        <button class="pill-choice" data-min="15">15 min</button>
+      </div>
+
+      <div class="warmup-controls">
+        <button class="btn-big btn-primary" id="warmupStartBtn">Iniciar</button>
+        <button class="btn-big btn-ghost" id="warmupResetBtn">Reiniciar</button>
+      </div>
+
+      <div class="goto-routine" id="warmupGoto">
+        <button class="btn-big btn-success" id="warmupGotoBtn">Ir a mi rutina de hoy →</button>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ===== Vista: Historial mensual de pesos ===== -->
+  <section class="view" id="view-history">
+    <div class="hist-head">
+      <button type="button" class="mini-btn" id="histPrev" aria-label="Mes anterior">◀</button>
+      <div class="hist-title" id="histTitle"></div>
+      <button type="button" class="mini-btn" id="histNext" aria-label="Mes siguiente">▶</button>
+    </div>
+
+    <div class="body-card">
+      <div class="body-head">⚖️ Mi peso corporal · <span id="bodyMonth"></span></div>
+      <div class="weight-row">
+        <span class="w-label">Peso</span>
+        <button type="button" class="w-step" id="bodyMinus" aria-label="Bajar peso corporal">−</button>
+        <input class="w-input" id="bodyInput" type="text" inputmode="decimal" enterkeyhint="done"
+               autocomplete="off" aria-label="Peso corporal del mes">
+        <button type="button" class="w-step" id="bodyPlus" aria-label="Subir peso corporal">+</button>
+        <span class="w-unit" id="bodyUnit">kg</span>
+      </div>
+      <p class="w-prev" id="bodyLine"></p>
+      <div class="hist-weeks" id="bodyChips"></div>
+    </div>
+
+    <div id="histBody"></div>
+  </section>
+
+  <!-- ===== Vista: Ajustes y objetivo ===== -->
+  <section class="view" id="view-config">
+    <div class="settings-card goal-card">
+      <h3>🎯 ¿Qué entrenamiento vas a hacer?</h3>
+      <p class="goal-hint">El plan de máquinas es el mismo; lo que cambia son repeticiones,
+        descansos y cardio, que es lo que decide el resultado. Se recomienda mantener el
+        objetivo <b>2 meses</b>, igual que la rotación de ejercicios.</p>
+      <div class="goal-grid" id="goalGrid"></div>
+      <p class="goal-note" id="goalNote"></p>
+    </div>
 
     <div class="settings-card">
       <h3>⚙️ Ajustes de entrenamiento</h3>
@@ -536,74 +627,11 @@
 
       <button class="btn-big btn-success" id="installBtn">📲 Instalar app en el celular</button>
     </div>
-
-    <div class="warmup-card">
-      <h2>Calentamiento</h2>
-      <p class="hint">Elige la duración y prepara el cuerpo antes de ir a las pesas.</p>
-
-      <div class="ring-wrap">
-        <svg viewBox="0 0 220 220">
-          <defs>
-            <linearGradient id="gradAccent" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#ff6a3d"/>
-              <stop offset="100%" stop-color="#ff8f5c"/>
-            </linearGradient>
-          </defs>
-          <circle class="ring-bg" cx="110" cy="110" r="96"></circle>
-          <circle class="ring-fg" id="warmupRing" cx="110" cy="110" r="96"></circle>
-        </svg>
-        <div class="ring-center">
-          <div class="ring-time" id="warmupTimeLabel">12:00</div>
-          <div class="ring-label" id="warmupStateLabel">Listo para iniciar</div>
-        </div>
-      </div>
-
-      <div class="warmup-select" id="warmupSelect">
-        <button class="pill-choice" data-min="10">10 min</button>
-        <button class="pill-choice selected" data-min="12">12 min</button>
-        <button class="pill-choice" data-min="15">15 min</button>
-      </div>
-
-      <div class="warmup-controls">
-        <button class="btn-big btn-primary" id="warmupStartBtn">Iniciar</button>
-        <button class="btn-big btn-ghost" id="warmupResetBtn">Reiniciar</button>
-      </div>
-
-      <div class="goto-routine" id="warmupGoto">
-        <button class="btn-big btn-success" id="warmupGotoBtn">Ir a mi rutina de hoy →</button>
-      </div>
-    </div>
-
     <footer class="hint">
       Fotos de ejercicios: free-exercise-db (dominio público).<br>
       Se guardan solas la primera vez que las ves, para funcionar sin señal.<br>
       <b id="appVersion"></b>
     </footer>
-  </section>
-
-  <!-- ===== Vista: Historial mensual de pesos ===== -->
-  <section class="view" id="view-history">
-    <div class="hist-head">
-      <button type="button" class="mini-btn" id="histPrev" aria-label="Mes anterior">◀</button>
-      <div class="hist-title" id="histTitle"></div>
-      <button type="button" class="mini-btn" id="histNext" aria-label="Mes siguiente">▶</button>
-    </div>
-
-    <div class="body-card">
-      <div class="body-head">⚖️ Mi peso corporal · <span id="bodyMonth"></span></div>
-      <div class="weight-row">
-        <span class="w-label">Peso</span>
-        <button type="button" class="w-step" id="bodyMinus" aria-label="Bajar peso corporal">−</button>
-        <input class="w-input" id="bodyInput" type="text" inputmode="decimal" enterkeyhint="done"
-               autocomplete="off" aria-label="Peso corporal del mes">
-        <button type="button" class="w-step" id="bodyPlus" aria-label="Subir peso corporal">+</button>
-        <span class="w-unit" id="bodyUnit">kg</span>
-      </div>
-      <p class="w-prev" id="bodyLine"></p>
-      <div class="hist-weeks" id="bodyChips"></div>
-    </div>
-
-    <div id="histBody"></div>
   </section>
 
   <div id="daysContainer"></div>
@@ -810,7 +838,7 @@ function defaultState(){
            progress:{}, weightLog:{}, doneLog:{}, bodyWeight:{}, reportSeen:{},
            planStart:null, lastRotation:null, rotateAlertSeen:null,
            weekDaysGoal:2, bonusWeeks:0, autoRest:'first', loudRestAlarm:true,
-           unavailable:{}, removed:{}, pendingAlarm:null };
+           unavailable:{}, removed:{}, goal:'masa', pendingAlarm:null };
 }
 function loadState(){
   try{
@@ -833,6 +861,71 @@ for(const d of DAYS){ if(!state.progress[d.id]) state.progress[d.id] = {}; }
      · el orden de los días, para no entrenar siempre el mismo músculo el lunes
    Series/reps/descanso NO cambian, así la duración del día se mantiene igual.
    ========================================================================= */
+/* =========================================================================
+   OBJETIVO DE ENTRENAMIENTO
+   El mismo plan de máquinas sirve para los tres objetivos: lo que cambia es
+   el estímulo (repeticiones, descanso, ritmo y cardio), que es lo que de
+   verdad decide el resultado.
+     · Masa:       cargas altas, 8-12 reps, descansos largos (recuperas fuerza)
+     · Definición: 10-15 reps, descansos medios + cardio suave
+     · Perder:     12-20 reps, descansos cortos (ritmo alto) + cardio final
+   Todos quedan por debajo de 1h30 incluyendo calentamiento y descansos.
+   ========================================================================= */
+const MAX_EJ_DIA = 8;              // tope de ejercicios para no pasar de 1h30
+
+const GOALS = {
+  masa: {
+    nombre:'Masa muscular', icono:'💪',
+    desc:'Cargas altas, repeticiones medias y descansos largos.',
+    repsMul:1.0, restMul:0.95, trans:85, cardioMin:0,
+    nota:'Prioriza la carga: si completas todas las repeticiones con técnica limpia, sube el peso la próxima semana.'
+  },
+  definicion: {
+    nombre:'Definición', icono:'🔥',
+    desc:'Más repeticiones y menos descanso, sin perder fuerza.',
+    repsMul:1.2, restMul:0.7, trans:65, cardioMin:8,
+    nota:'Mantén el peso lo más alto que puedas aunque subas repeticiones: así conservas músculo mientras defines.'
+  },
+  perder: {
+    nombre:'Perder peso', icono:'⚡',
+    desc:'Ritmo alto, descansos cortos y cardio al final.',
+    repsMul:1.4, restMul:0.45, trans:50, cardioMin:12,
+    nota:'Respeta los descansos cortos: mantener las pulsaciones arriba es lo que hace el trabajo aquí.'
+  }
+};
+function goal(){ return GOALS[state.goal] || GOALS.masa; }
+
+/* Máquina de cardio distinta por día, para no aburrirte. */
+const CARDIO_POR_DIA = {
+  d1: { ref:'Walking_Treadmill',    name:'Cardio final · Caminadora en inclinación', tip:'Inclinación 8-10% y paso vivo; deberías poder hablar entrecortado.' },
+  d2: { ref:'Rowing_Stationary',    name:'Cardio final · Remo',                      tip:'Empuja con las piernas primero y termina con los brazos; ritmo constante.' },
+  d3: { ref:'Bicycling_Stationary', name:'Cardio final · Bicicleta estática',        tip:'Después de piernas, resistencia media y cadencia cómoda.' },
+  d4: { ref:'Elliptical_Trainer',   name:'Cardio final · Elíptica',                  tip:'Usa también los brazos; mantén el tronco erguido.' },
+  d5: { ref:'Stairmaster',          name:'Cardio final · Escalador',                 tip:'Sin apoyarte en los brazos: el peso va en las piernas.' }
+};
+function cardioCard(dayId, minutos){
+  const c = CARDIO_POR_DIA[dayId] || CARDIO_POR_DIA.d1;
+  return { name:`${c.name} (${minutos} min)`, ref:c.ref, anim:'core', cardio:true,
+           sets:1, reps:minutos*60, timed:true, rest:0, tip:c.tip };
+}
+/* Ajusta repeticiones y descanso al objetivo elegido. */
+function goalTune(ex){
+  if(ex.cardio) return ex;
+  const g = goal();
+  return Object.assign({}, ex, {
+    reps: ex.timed ? ex.reps : Math.max(6, Math.round(ex.reps * g.repsMul)),
+    rest: Math.max(20, Math.round(ex.rest * g.restMul))
+  });
+}
+/* Ejercicios que realmente se entrenan hoy: variante disponible + objetivo
+   + cardio final si el objetivo lo pide. Es la única lista que usa la app. */
+function dayExercises(day){
+  const list = day.exercises.slice(0, MAX_EJ_DIA).map(ex => goalTune(activeExercise(ex)));
+  const g = goal();
+  if(g.cardioMin > 0) list.push(cardioCard(day.id, g.cardioMin));
+  return list;
+}
+
 const VARIANTS = ['A','B','C'];
 function variantIdx(){ return state.cycle % VARIANTS.length; }
 
@@ -876,7 +969,7 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '1.8';          // se muestra abajo en Calentamiento, para confirmar actualizaciones
+const APP_VERSION = '2.1';          // se muestra al final de Ajustes, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
 const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
 const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
@@ -914,7 +1007,7 @@ function justRotated(){ return state.lastRotation && weeksSinceRotation() <= 1; 
 /* Ejercicios de la variante anterior, para no perder de vista sus pesos. */
 function prevVariantList(day){
   const pv = (variantIdx() - 1 + VARIANTS.length) % VARIANTS.length;
-  return day.exercises.map(ex => {
+  return day.exercises.slice(0, MAX_EJ_DIA).map(ex => {
     if(pv === 0) return { name: ex.name, ref: ex.ref };
     const alt = ex.alts && ex.alts[pv-1];
     return alt ? { name: alt.name, ref: alt.ref } : null;
@@ -1005,7 +1098,8 @@ function setWeight(ref, displayVal){
    Sirve para decidir la meta de la semana siguiente. */
 function recordDone(dayId, exIdx){
   const day = DAYS.find(d => d.id === dayId);
-  const ex = activeExercise(day.exercises[exIdx]);
+  const ex = dayExercises(day)[exIdx];
+  if(!ex) return;
   let done = 0;
   for(let s=0; s<ex.sets; s++) if(state.progress[dayId][`${exIdx}_${s}`]) done++;
   const log = state.doneLog[ex.ref] || (state.doneLog[ex.ref] = {});
@@ -1034,7 +1128,7 @@ function pctStr(p){ return Math.round(p * 100) + '%'; }
 function dayCompletion(dayId, week){
   const day = DAYS.find(d => d.id === dayId);
   let done = 0, total = 0, any = false;
-  day.exercises.map(activeExercise).forEach(ex => {
+  dayExercises(day).forEach(ex => {
     total += ex.sets;
     const v = state.doneLog[ex.ref] ? state.doneLog[ex.ref][week] : undefined;
     if(v !== undefined){ any = true; done += Math.min(v, ex.sets); }
@@ -1046,7 +1140,7 @@ function lastTrackedWeek(dayId){
   const day = DAYS.find(d => d.id === dayId);
   const cur = weekKey();
   let best = null;
-  day.exercises.map(activeExercise).forEach(ex => {
+  dayExercises(day).forEach(ex => {
     Object.keys(state.doneLog[ex.ref] || {}).forEach(k => {
       if(k < cur && (!best || k > best)) best = k;
     });
@@ -1108,7 +1202,7 @@ function targetFor(ref, sets, dayId){
 }
 function setsOfCard(card){
   const day = DAYS.find(d => d.id === card.dataset.day);
-  return day.exercises[Number(card.dataset.ex)].sets;
+  return dayExercises(day)[Number(card.dataset.ex)].sets;
 }
 function repeatReason(t){
   return t.why === 'day'
@@ -1164,6 +1258,7 @@ function refreshWeightUI(ref){
   document.querySelectorAll(sel).forEach(card => {
     const r = card.dataset.ref;
     const input = card.querySelector('.w-input');
+    if(!input) return;                       // las tarjetas de cardio no llevan peso
     const cur = weightThisWeek(r);
     const prev = weightPrevWeek(r);
     const target = targetFor(r, setsOfCard(card), card.dataset.day);
@@ -1201,6 +1296,27 @@ function stepWeight(card, dir){
   const base = !isNaN(typed) ? typed : (!isNaN(prev) ? prev : 0);
   setWeight(ref, Math.max(0, roundHalf(base + dir * step)));
   refreshWeightUI(ref);
+}
+
+function updateGoalUI(){
+  const grid = document.getElementById('goalGrid');
+  if(!grid) return;
+  grid.innerHTML = Object.entries(GOALS).map(([id,g]) => `
+    <button type="button" class="goal-opt${id === (state.goal || 'masa') ? ' on' : ''}" data-goal="${id}">
+      <span class="ico">${g.icono}</span><span class="nom">${g.nombre}</span>
+    </button>`).join('');
+  const g = goal();
+  document.getElementById('goalNote').innerHTML =
+    `<span class="goal-tag">${g.icono} ${g.nombre}:</span> ${g.desc} 💡 ${g.nota}`;
+}
+/* Cambiar de objetivo no borra nada: los pesos y el historial se mantienen. */
+function setGoal(id){
+  if(!GOALS[id] || id === state.goal) return;
+  const vista = document.querySelector('.view.active')?.id.replace('view-','') || 'warmup';
+  state.goal = id;
+  saveState();
+  renderAll();
+  showView(vista);
 }
 
 function updateAutoRestSeg(){
@@ -1317,14 +1433,14 @@ function prevVariantBlockHtml(day){
     </div>`;
 }
 function dayHasHistory(day){
-  if(day.exercises.map(activeExercise).some(ex => weightPrevWeek(ex.ref))) return true;
+  if(dayExercises(day).some(ex => weightPrevWeek(ex.ref))) return true;
   return justRotated() && prevVariantList(day).some(ex => lastWeightAny(ex.ref));
 }
 /* fromReset = true cuando lo abre el botón "Reiniciar progreso de hoy". */
 function openWeightReport(dayId, fromReset){
   const day = DAYS.find(d => d.id === dayId);
   const pos = orderedDays().indexOf(day) + 1;
-  const list = day.exercises.map(activeExercise);
+  const list = dayExercises(day).filter(ex => !ex.cardio);   // el cardio no lleva peso
   const hasAny = list.some(ex => weightPrevWeek(ex.ref) || weightThisWeek(ex.ref) !== undefined);
   const prevBlock = justRotated() ? prevVariantBlockHtml(day) : '';
   const showReset = fromReset || dayHasChecks(dayId);
@@ -1611,11 +1727,11 @@ function renderHistory(){
    ========================================================================= */
 function exerciseSeconds(ex){
   const work = ex.timed ? ex.reps : ex.reps * SEC_PER_REP;
-  return ex.sets * (work + ex.rest) + TRANSITION_SECONDS;
+  return ex.sets * (work + ex.rest) + goal().trans;
 }
 function dayDurationSeconds(day, warmupMin){
   let total = warmupMin * 60;
-  for(const ex of day.exercises) total += exerciseSeconds(ex);
+  for(const ex of dayExercises(day)) total += exerciseSeconds(ex);
   return total;
 }
 function formatDurationLong(totalSec){
@@ -1885,6 +2001,7 @@ function exerciseCard(day, ex, idx, natural){
         <p class="ex-meta">${metaTxt}</p>
         <p class="ex-tip">💡 ${ex.tip}</p>
         ${sustituye}${marcado}
+        ${ex.cardio ? '' : `
         <button type="button" class="avail-btn${isFlagged(ex.ref) ? ' flagged' : ''}" data-noequip="${ex.ref}">${
           isFlagged(ex.ref) ? '↩ Sí tengo esta máquina' : '🚫 No tengo esta máquina'}</button>
         <div class="weight-row">
@@ -1895,7 +2012,7 @@ function exerciseCard(day, ex, idx, natural){
           <button type="button" class="w-step" data-dir="1" aria-label="Subir peso">+</button>
           <span class="w-unit">${state.unit}</span>
         </div>
-        <p class="w-prev"></p>
+        <p class="w-prev"></p>`}
         <div class="set-row">${setsHtml}</div>
       </div>
     </article>`;
@@ -1968,7 +2085,8 @@ function buildDayView(day, position){
       <div class="duration">
         <b>Día ${position} · ${day.title}</b><br>
         ⏱ Duración estimada: <b id="dur-${day.id}"></b> (con calentamiento)<br>
-        <span class="variant-tag">Variante ${VARIANTS[variantIdx()]}</span> · <span class="plan-tag" id="plan-${day.id}"></span><br>
+        <span class="goal-tag">${goal().icono} ${goal().nombre}</span> · Variante ${VARIANTS[variantIdx()]}<br>
+        <span class="plan-tag" id="plan-${day.id}"></span><br>
         <span class="min-tag" id="min-${day.id}"></span>
       </div>
       <div class="progress-ring-mini">
@@ -1984,8 +2102,9 @@ function buildDayView(day, position){
     <button class="reset-day-btn" data-reset="${day.id}">Reiniciar progreso de hoy</button>
   `;
   daysContainer.appendChild(wrap);
-  document.getElementById('exlist-' + day.id).innerHTML = day.exercises
-    .map((ex,i) => exerciseCard(day, activeExercise(ex), i, cycleExercise(ex))).join('');
+  const base = day.exercises.slice(0, MAX_EJ_DIA);
+  document.getElementById('exlist-' + day.id).innerHTML = dayExercises(day)
+    .map((ex,i) => exerciseCard(day, ex, i, base[i] ? cycleExercise(base[i]) : null)).join('');
   // la duración se calcula con los datos reales (no cambia entre variantes)
   document.getElementById('dur-' + day.id).textContent =
     formatDurationLong(dayDurationSeconds(day, state.warmupMin));
@@ -1997,7 +2116,7 @@ function refreshDayDuration(day){
 }
 function refreshDayProgress(day){
   let total = 0, done = 0;
-  day.exercises.forEach((ex,i)=>{
+  dayExercises(day).forEach((ex,i)=>{
     total += ex.sets;
     for(let s=0;s<ex.sets;s++) if(state.progress[day.id][`${i}_${s}`]) done++;
     const exDone = Array.from({length:ex.sets},(_,s)=>!!state.progress[day.id][`${i}_${s}`]).every(Boolean);
@@ -2026,7 +2145,7 @@ function refreshDayProgress(day){
   }
 }
 function applyStoredChecks(day){
-  day.exercises.forEach((ex,i)=>{
+  dayExercises(day).forEach((ex,i)=>{
     for(let s=0;s<ex.sets;s++){
       const input = document.querySelector(`.set-input[data-day="${day.id}"][data-ex="${i}"][data-set="${s}"]`);
       if(input) input.checked = !!state.progress[day.id][`${i}_${s}`];
@@ -2039,7 +2158,7 @@ function renderAll(){
   const days = orderedDays();
   tabsEl.innerHTML = [{id:'warmup', label:'🔥 Calentamiento'}]
     .concat(days.map((d,i)=>({id:d.id, label:`D${i+1} · ${d.tag}`})))
-    .concat([{id:'history', label:'📈 Historial'}])
+    .concat([{id:'history', label:'📈 Historial'}, {id:'config', label:'⚙️ Ajustes'}])
     .map(it=>`<button class="tab-btn" data-view="${it.id}">${it.label}</button>`).join('');
   tabsEl.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> showView(btn.dataset.view));
@@ -2058,6 +2177,7 @@ function renderAll(){
 
   updateRotateStatus();
   updateUnavailableList();
+  updateGoalUI();
 }
 
 /* Aviso de rotación en Ajustes (se recalcula al marcar series). */
@@ -2340,6 +2460,11 @@ function init(){
   });
   document.getElementById('testAlarmBtn').addEventListener('click', testAlarm);
 
+  document.getElementById('goalGrid').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-goal]');
+    if(b) setGoal(b.dataset.goal);
+  });
+
   document.getElementById('noEquipList').addEventListener('click', e=>{
     const b = e.target.closest('[data-restore]');
     if(b) restoreAvailable(b.dataset.restore);
@@ -2402,7 +2527,7 @@ function init(){
     //  · si con esa serie terminaste el ejercicio completo → 1 minuto (cambio de máquina)
     //  · si todavía te faltan series → 45 segundos
     if(e.target.checked && state.autoRest !== 'off'){
-      const exObj = DAYS.find(d=>d.id===day).exercises[Number(ex)];
+      const exObj = dayExercises(DAYS.find(d=>d.id===day))[Number(ex)];
       let hechas = 0;
       for(let s=0; s<exObj.sets; s++) if(state.progress[day][`${ex}_${s}`]) hechas++;
       if(hechas >= exObj.sets) startRest(AUTO_REST_EXERCISE_SECONDS);

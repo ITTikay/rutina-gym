@@ -4,7 +4,17 @@ App web (PWA) de rutina de gimnasio de 5 días, pensada para el celular.
 
 ## Qué incluye
 
-- **Rutina de 5 días** balanceada por grupo muscular, con duración calculada entre 1h30 y 2h.
+- **Pestañas**: la principal (🔥 Calentamiento) tiene solo el temporizador; al final está **⚙️ Ajustes**, con el objetivo de entrenamiento, las alarmas, el plan de progresión, la rotación y los equipos excluidos.
+- **Tres objetivos de entrenamiento**, elegibles en la pestaña ⚙️ Ajustes. El plan de máquinas es el mismo; cambia el estímulo:
+
+  | Objetivo | Repeticiones | Descanso | Cardio | Duración máx. |
+  |---|---|---|---|---|
+  | 💪 Masa muscular | base (8-12) | largo (95-133 s) | — | 88 min |
+  | 🔥 Definición | +20% (10-15) | medio (50-95 s) | 8 min | 88 min |
+  | ⚡ Perder peso | +40% (12-20) | corto (30-60 s) | 12 min | 84 min |
+
+  El cardio final usa una máquina distinta cada día (caminadora, remo, bici, elíptica, escalador). Se recomienda mantener el objetivo 2 meses, igual que la rotación. Cambiar de objetivo **no borra** pesos ni historial.
+- **Rutina de 5 días** balanceada por grupo muscular, con duración calculada que **nunca pasa de 1h30** (verificado en las 135 combinaciones de objetivo × día × variante × calentamiento).
 - **Fotos reales** de cada ejercicio ([free-exercise-db](https://github.com/yuhonas/free-exercise-db), dominio público), con dos tomas alternándose para mostrar el movimiento.
 - **Temporizador de calentamiento** (10 / 12 / 15 min) y **temporizador de descanso** (45s / 1min / 2min).
 - **Descanso automático**: al marcar una serie arranca solo el temporizador — **45 s entre series** y **1 minuto al completar todas las series del ejercicio** (el tiempo de cambiar de máquina). En Ajustes se elige *Apagado · 1ª serie · Todas* (por defecto, 1ª serie).
