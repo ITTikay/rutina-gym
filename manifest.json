@@ -1,6 +1,6 @@
 {
-  "name": "Mi Rutina de Gym",
-  "short_name": "Rutina Gym",
+  "name": "COHORS NOCTIS",
+  "short_name": "COHORS NOCTIS",
   "description": "Rutina de gimnasio de 5 días con temporizadores de calentamiento y descanso, seguimiento de series y rotación mensual de ejercicios.",
   "lang": "es",
   "start_url": "./index.html",

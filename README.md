@@ -1,4 +1,4 @@
-# Mi Rutina de Gym
+# COHORS NOCTIS
 
 App web (PWA) de rutina de gimnasio de 5 días, pensada para el celular.
 
@@ -28,7 +28,7 @@ App web (PWA) de rutina de gimnasio de 5 días, pensada para el celular.
 - **Seguimiento de series** con checkboxes, guardado en `localStorage`.
 - **Registro de peso por ejercicio** (kg o lb) con botones −/+ y comparación contra la semana anterior (▲ subiste / ▼ bajaste / = igual).
 - **Meta semanal (sobrecarga progresiva) con 75% mínimo de cumplimiento**: la meta es subir un escalón (2.5 kg / 5 lb) si la semana anterior (1) hiciste al menos el **75% de la rutina del día** — así puedes saltar ejercicios cuando en tu gimnasio no hay la máquina — y (2) de ese ejercicio hiciste al menos el **75% de sus series** (3 de 4, 4 de 5, 3 de 3). Si no, la meta es repetir el peso. La meta aparece en gris dentro del campo vacío y al tocarlo se copia. Si repites el peso cuando tocaba subir, sale un aviso amarillo.
-- **Plan de progresión 2 + 2**: desde que empiezas, 2 semanas se mantiene el peso y 2 semanas se sube (S1 = · S2 = · S3 ▲ · S4 ▲), y se repite. La primera subida llega después de 2 semanas. En las semanas de mantener la meta es el mismo peso; en las de subir aplica la regla del 75%. Si vas en otra semana del plan, se corrige en Ajustes tocando S1–S4.
+- **Plan de progresión: el peso sube cada 2 semanas**. Ciclo de 2 semanas: S1 mantener · S2 subir. La subida solo se aplica si **la semana anterior fue "semana cumplida"** (llegaste al mínimo de días configurado); si no, se repite el peso y la app dice por qué. Además, ese ejercicio en concreto debe haberse hecho al menos al 75% de sus series. Si vas en otra semana del plan, se corrige en Ajustes tocando S1/S2.
 - **Cambio de mes**: el peso no baja solo. Si al empezar un mes anotas un peso menor, queda registrado como "bajada del mes" (en azul, no como error).
 - **⚖️ Peso corporal por mes**: en 📈 Historial se anota el peso corporal de cada mes, con comparación contra el mes anterior (▼ bajaste / ▲ subiste / ≈ igual), aviso de estancamiento cuando llevas 2+ meses en el mismo peso (±0.5 kg) y los últimos 6 meses en fila.
 - **⏰ Aviso de rotación cada 2 meses**: el botón 🔄 Rotar funciona **cuando quieras**, pero además a las 8 **semanas cumplidas** salta una alerta (una vez por semana) recordando rotar, y en Ajustes se ve el avance ("Semanas cumplidas: 5 de 8 · esta semana llevas 2 días de 2").

@@ -8,11 +8,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Rutina Gym">
+<meta name="apple-mobile-web-app-title" content="COHORS NOCTIS">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Mi Rutina de Gym</title>
+<title>COHORS NOCTIS</title>
 <style>
   :root{
     --bg:#0d0f13;
@@ -53,7 +53,8 @@
     background:linear-gradient(180deg,var(--bg-elevated) 80%,transparent);
     padding:calc(14px + var(--safe-top)) 18px 10px;
   }
-  .app-title{font-size:20px; font-weight:800; letter-spacing:.2px; display:flex; align-items:center; gap:8px;}
+  .app-title{font-size:20px; font-weight:800; letter-spacing:1.4px; display:flex; align-items:center; gap:9px;}
+  .app-title .logo{width:30px; height:30px; flex:0 0 auto;}
   .app-sub{color:var(--text-dim); font-size:13px; margin-top:2px;}
 
   /* ---------- Tabs ---------- */
@@ -456,7 +457,30 @@
 <body>
 
 <header class="app-header">
-  <div class="app-title"><span>🏋️</span> Mi Rutina de Gym</div>
+  <div class="app-title">
+    <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <linearGradient id="gLogo" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#ffc24d"/>
+          <stop offset="50%" stop-color="#ff6a3d"/>
+          <stop offset="100%" stop-color="#d93211"/>
+        </linearGradient>
+      </defs>
+      <!-- cuernos -->
+      <path fill="url(#gLogo)" d="M52,27 L88,5 L67,29 Z"/>
+      <path fill="url(#gLogo)" d="M64,30 L97,29 L75,41 Z"/>
+      <!-- cabeza -->
+      <path fill="url(#gLogo)" d="M6,52 L14,43 L26,39 L34,30 L48,26 L62,28 L74,36 L80,50
+                                  L74,63 L58,67 L40,67 L30,63 L16,58 Z"/>
+      <!-- barba -->
+      <path fill="url(#gLogo)" d="M30,64 L25,80 L41,67 Z"/>
+      <!-- boca y ojo -->
+      <path fill="#0d0f13" d="M12,53 L21,58 L28,52 L36,59 L44,52 L52,59 L60,53 L67,59
+                              L65,63 L50,64 L34,63 L20,60 Z"/>
+      <path fill="#0d0f13" d="M34,42 L45,37 L41,47 Z"/>
+    </svg>
+    COHORS NOCTIS
+  </div>
   <div class="app-sub" id="headerSub">Plan de 5 días · progreso guardado en este dispositivo</div>
 </header>
 
@@ -617,14 +641,12 @@
 
       <div class="set-line stack">
         <div class="set-label">
-          Plan de progresión: 2 semanas mantener · 2 semanas subir
+          Plan de progresión: el peso sube cada 2 semanas
           <small id="planHint"></small>
         </div>
         <div class="seg plan-seg" id="planSeg">
-          <button type="button" data-pos="0">S1 =</button>
-          <button type="button" data-pos="1">S2 =</button>
-          <button type="button" data-pos="2">S3 ▲</button>
-          <button type="button" data-pos="3">S4 ▲</button>
+          <button type="button" data-pos="0">S1 = mantener</button>
+          <button type="button" data-pos="1">S2 ▲ subir</button>
         </div>
       </div>
 
@@ -1014,7 +1036,7 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '2.3';          // se muestra al final de Ajustes, para confirmar actualizaciones
+const APP_VERSION = '2.4';          // se muestra al final de Ajustes, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
 const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
 const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
@@ -1196,15 +1218,16 @@ function lastTrackedWeek(dayId){
 }
 
 /* =========================================================================
-   PLAN DE PROGRESIÓN: 2 semanas MANTENER / 2 semanas SUBIR
-   Se cuentan semanas desde el inicio del plan (state.planStart, un lunes):
-     semanas 1 y 2 → mantener el peso
-     semanas 3 y 4 → subir (si se cumple el 75%)
-   y se repite siempre. Así la primera subida llega después de 2 semanas.
-   Si vas en otra semana del plan, se corrige en Ajustes (botones S1–S4).
+   PLAN DE PROGRESIÓN: el peso sube CADA 2 SEMANAS
+   Ciclo de 2 semanas contado desde state.planStart (un lunes):
+     semana 1 → mantener el peso
+     semana 2 → subir, PERO solo si la semana anterior fue "semana cumplida"
+                (llegaste al mínimo de días de entrenamiento configurado)
+   Si esa semana no se cumplió, se repite el peso: no se sube sin haber
+   entrenado lo mínimo. Si vas en otra semana, se corrige en Ajustes (S1/S2).
    ========================================================================= */
-const PLAN_LEN = 4;
-const PLAN_UP_FROM = 2;            // posiciones 0 y 1 mantienen; 2 y 3 suben
+const PLAN_LEN = 2;
+const PLAN_UP_FROM = 1;            // posición 0 mantiene; posición 1 sube
 
 function planPos(week = weekKey()){
   const n = weeksBetween(state.planStart, week);
@@ -1214,8 +1237,8 @@ function planPhase(week = weekKey()){ return planPos(week) >= PLAN_UP_FROM ? 'up
 function planLabel(week = weekKey()){
   const pos = planPos(week);
   return planPhase(week) === 'up'
-    ? `📅 Semana ${pos+1} de 4: ▲ toca subir`
-    : `📅 Semana ${pos+1} de 4: = mantener el peso`;
+    ? `📅 Semana ${pos+1} de ${PLAN_LEN}: ▲ toca subir`
+    : `📅 Semana ${pos+1} de ${PLAN_LEN}: = mantener el peso`;
 }
 /* "Esta semana voy en la S(pos+1)": mueve el inicio del plan para que calce. */
 function setPlanPosition(pos){
@@ -1239,10 +1262,15 @@ function targetFor(ref, sets, dayId){
   const step = state.unit === 'lb' ? 5 : 2.5;
   const up = { disp: roundHalf(prevDisp + step), kind:'up', step };
 
-  const dayPct = dayCompletion(dayId, prev.week);
-  if(dayPct === null) return up;
-  if(dayPct < MIN_COMPLETION) return { disp: prevDisp, kind:'repeat', why:'day', dayPct };
-  // si ese ejercicio no se marcó esa semana, se tomó como saltado (0 series)
+  // sin ninguna serie marcada esa semana no hay con qué medir: se deja subir
+  if(trainedDaysInWeek(prev.week) === 0 && dayCompletion(dayId, prev.week) === null) return up;
+
+  // condición principal: esa semana tiene que haber sido "semana cumplida"
+  if(!weekIsDone(prev.week)){
+    return { disp: prevDisp, kind:'repeat', why:'week',
+             dias: trainedDaysInWeek(prev.week), meta: weekDaysGoal() };
+  }
+  // y ese ejercicio en concreto tiene que haberse hecho (mínimo 75% de sus series)
   const done = (state.doneLog[ref] && state.doneLog[ref][prev.week]) || 0;
   if(done < minSets(sets)) return { disp: prevDisp, kind:'repeat', why:'ex', done, sets };
   return up;
@@ -1252,8 +1280,8 @@ function setsOfCard(card){
   return dayExercises(day)[Number(card.dataset.ex)].sets;
 }
 function repeatReason(t){
-  return t.why === 'day'
-    ? `la rutina quedó en ${pctStr(t.dayPct)}, mínimo 75%`
+  return t.why === 'week'
+    ? `esa semana entrenaste ${t.dias} ${t.dias === 1 ? 'día' : 'días'} de ${t.meta}: no fue semana cumplida`
     : `hiciste ${t.done}/${t.sets} series, mínimo ${minSets(t.sets)}`;
 }
 
@@ -1289,8 +1317,8 @@ function prevLineHtml(prev, curKg, target){
   }else if(target.kind === 'hold'){
     txt += ` · <span class="up">= igual ✓ semana de mantener</span>`;
   }else{
-    const need = target.why === 'day'
-      ? 'completa al menos el 75% de la rutina'
+    const need = target.why === 'week'
+      ? `completa la semana (${target.meta} días) para poder subir`
       : `haz al menos ${minSets(target.sets)} de ${target.sets} series`;
     txt += ` · <span class="same">= igual · ${need}</span>`;
   }
@@ -1450,9 +1478,9 @@ function planBannerHtml(dayId){
   const pos = planPos();
   if(planPhase() === 'hold'){
     const faltan = PLAN_UP_FROM - pos;
-    return `<div class="cmp-banner plan">📅 Semana ${pos+1} de 4 del plan: <b>mantener el peso</b>. La próxima subida es en ${faltan === 1 ? '1 semana' : faltan + ' semanas'}.</div>`;
+    return `<div class="cmp-banner plan">📅 Semana ${pos+1} de ${PLAN_LEN} del plan: <b>mantener el peso</b>. La próxima subida es en ${faltan === 1 ? '1 semana' : faltan + ' semanas'}.</div>`;
   }
-  return `<div class="cmp-banner plan">📅 Semana ${pos+1} de 4 del plan: <b>toca subir</b>.</div>` + completionBannerHtml(dayId);
+  return `<div class="cmp-banner plan">📅 Semana ${pos+1} de ${PLAN_LEN} del plan: <b>toca subir</b>, siempre que la semana pasada haya sido cumplida.</div>` + completionBannerHtml(dayId);
 }
 function dayHasChecks(dayId){
   return Object.values(state.progress[dayId] || {}).some(Boolean);
@@ -1498,7 +1526,7 @@ function openWeightReport(dayId, fromReset){
       : `📋 Pesos de la semana anterior · Día ${pos} · ${day.title}`,
     sub: fromReset
       ? 'Tus pesos quedan guardados: solo se desmarcan las series.'
-      : 'Plan: 2 semanas mantienes el peso y 2 semanas subes. En las de subir, sube si hiciste al menos el 75% de la rutina y del ejercicio (puedes saltar ejercicios si falta la máquina).',
+      : 'El peso sube cada 2 semanas, y solo si la semana anterior fue cumplida (llegaste al mínimo de días). Si no, se repite el peso.',
     bodyHtml: hasAny
       ? planBannerHtml(dayId) + summaryHtml(list) + list.map(ex => compareRowHtml(ex, dayId)).join('') + prevBlock
       : (prevBlock || `<p class="modal-empty">Todavía no anotaste pesos en este día.<br>
