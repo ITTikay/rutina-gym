@@ -246,6 +246,24 @@
   .set-input:checked + .set-box .num{opacity:0; transform:scale(.4);}
   .set-input:checked + .set-box .chk{opacity:1; transform:scale(1);}
 
+  /* series extra: solo aparecen cuando ya terminaste todas las series */
+  .extra-box{display:none; margin-top:12px; padding-top:11px; border-top:1px dashed var(--border);}
+  .ex-card.done .extra-box{display:block;}
+  .extra-head{font-size:12px; font-weight:800; color:var(--accent2); margin-bottom:8px;}
+  .extra-count{color:var(--text-faint); font-weight:700;}
+  .extra-row{display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
+  .extra-reps{width:62px;}
+  .extra-add{
+    flex:1; min-width:124px; background:var(--accent2); border:none; color:#04262b;
+    padding:11px 10px; border-radius:var(--radius-sm); font-size:12.5px; font-weight:800;
+  }
+  .extra-list{display:flex; flex-wrap:wrap; gap:6px; margin-top:9px;}
+  .extra-chip{
+    background:var(--card-alt); border:1px solid var(--accent2); color:var(--accent2);
+    border-radius:999px; padding:5px 10px; font-size:11.5px; font-weight:800;
+  }
+  .extra-chip small{color:var(--text-faint); font-weight:600; margin-left:4px;}
+
   /* ---------- Registro de peso por ejercicio ---------- */
   .weight-row{display:flex; align-items:center; gap:8px; margin-top:12px;}
   .w-label{font-size:11px; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; margin-right:2px;}
@@ -838,7 +856,7 @@ function defaultState(){
            progress:{}, weightLog:{}, doneLog:{}, bodyWeight:{}, reportSeen:{},
            planStart:null, lastRotation:null, rotateAlertSeen:null,
            weekDaysGoal:2, bonusWeeks:0, autoRest:'first', loudRestAlarm:true,
-           unavailable:{}, removed:{}, goal:'masa', pendingAlarm:null };
+           unavailable:{}, removed:{}, goal:'masa', extraSets:{}, pendingAlarm:null };
 }
 function loadState(){
   try{
@@ -969,7 +987,7 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '2.1';          // se muestra al final de Ajustes, para confirmar actualizaciones
+const APP_VERSION = '2.2';          // se muestra al final de Ajustes, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
 const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
 const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
@@ -1024,6 +1042,7 @@ function doRotate(){
   state.bonusWeeks = 0;                  // el contador arranca de cero con los ejercicios nuevos
   state.reportSeen = {};                 // que el reporte vuelva a salir con los ejercicios nuevos
   for(const d of DAYS) state.progress[d.id] = {};
+  state.extraSets = {};
   saveState();
   renderAll();
   showView('warmup');
@@ -1517,12 +1536,52 @@ function closeModal(){
   document.body.classList.remove('modal-open');
   modalConfirmAction = null;
 }
+/* =========================================================================
+   SERIES EXTRA
+   Cuando ya terminaste todas las series de un ejercicio, puedes añadir las
+   que quieras: anotas las repeticiones y arranca el descanso de 45 s.
+   No cuentan para el 75% ni para la meta de peso: son trabajo adicional.
+   Se guardan como state.extraSets[díaId][índice] = [reps, reps, ...]
+   ========================================================================= */
+function extraList(dayId, idx){
+  const d = state.extraSets[dayId];
+  return (d && d[idx]) || [];
+}
+function refreshExtra(dayId, idx){
+  const lista = extraList(dayId, idx);
+  const cont = document.getElementById(`xl-${dayId}-${idx}`);
+  const cuenta = document.getElementById(`xc-${dayId}-${idx}`);
+  if(cuenta) cuenta.textContent = lista.length ? `· ${lista.length} hecha${lista.length > 1 ? 's' : ''}` : '';
+  if(cont) cont.innerHTML = lista.map((reps,i) =>
+    `<button type="button" class="extra-chip" data-xdel="${idx}" data-xi="${i}"
+      title="Tocar para quitar">E${i+1} · ${reps} reps<small>✕</small></button>`).join('');
+}
+function addExtraSet(dayId, idx, reps){
+  const dia = state.extraSets[dayId] || (state.extraSets[dayId] = {});
+  (dia[idx] || (dia[idx] = [])).push(reps);
+  saveState();
+  refreshExtra(dayId, idx);
+  startRest(AUTO_REST_SECONDS);          // mismo descanso de 45 s
+}
+function removeExtraSet(dayId, idx, i){
+  const lista = extraList(dayId, idx);
+  lista.splice(i, 1);
+  if(!lista.length && state.extraSets[dayId]) delete state.extraSets[dayId][idx];
+  saveState();
+  refreshExtra(dayId, idx);
+}
+function refreshAllExtras(day){
+  dayExercises(day).forEach((ex,i) => refreshExtra(day.id, i));
+}
+
 function resetDay(dayId){
   state.progress[dayId] = {};
+  delete state.extraSets[dayId];          // las extra son de la sesión, se van con ella
   saveState();
   const dayObj = DAYS.find(d => d.id === dayId);
   applyStoredChecks(dayObj);
   refreshDayProgress(dayObj);
+  refreshAllExtras(dayObj);
 }
 
 /* =========================================================================
@@ -2014,6 +2073,19 @@ function exerciseCard(day, ex, idx, natural){
         </div>
         <p class="w-prev"></p>`}
         <div class="set-row">${setsHtml}</div>
+        ${ex.cardio ? '' : `
+        <div class="extra-box">
+          <div class="extra-head">➕ Series extra <span class="extra-count" id="xc-${day.id}-${idx}"></span></div>
+          <div class="extra-row">
+            <button type="button" class="w-step" data-xrep="-1">−</button>
+            <input class="w-input extra-reps" type="text" inputmode="numeric" enterkeyhint="done"
+                   autocomplete="off" value="${ex.reps}" aria-label="Repeticiones de la serie extra">
+            <span class="w-unit">reps</span>
+            <button type="button" class="w-step" data-xrep="1">+</button>
+            <button type="button" class="extra-add" data-xadd="${idx}">Añadir + 45 s</button>
+          </div>
+          <div class="extra-list" id="xl-${day.id}-${idx}"></div>
+        </div>`}
       </div>
     </article>`;
 }
@@ -2166,7 +2238,7 @@ function renderAll(){
 
   daysContainer.innerHTML = '';
   days.forEach((d,i)=> buildDayView(d, i+1));
-  days.forEach(d=>{ applyStoredChecks(d); refreshDayProgress(d); });
+  days.forEach(d=>{ applyStoredChecks(d); refreshDayProgress(d); refreshAllExtras(d); });
   refreshWeightUI();
   updateUnitSeg();
 
@@ -2543,6 +2615,28 @@ function init(){
     if(resetBtn){ openWeightReport(resetBtn.dataset.reset, true); return; }
     const noEquip = e.target.closest('[data-noequip]');
     if(noEquip){ toggleEquipFlag(noEquip.dataset.noequip); return; }
+
+    // series extra: ajustar repeticiones, añadir una, o quitarla tocando su chip
+    const xrep = e.target.closest('[data-xrep]');
+    if(xrep){
+      const input = xrep.closest('.extra-row').querySelector('.extra-reps');
+      const v = parseInt(input.value, 10);
+      input.value = Math.min(99, Math.max(1, (isNaN(v) ? 10 : v) + Number(xrep.dataset.xrep)));
+      return;
+    }
+    const xadd = e.target.closest('[data-xadd]');
+    if(xadd){
+      const card = xadd.closest('.ex-card');
+      const v = parseInt(card.querySelector('.extra-reps').value, 10);
+      if(isNaN(v) || v < 1 || v > 99) return;
+      addExtraSet(card.dataset.day, Number(xadd.dataset.xadd), v);
+      return;
+    }
+    const xdel = e.target.closest('[data-xdel]');
+    if(xdel){
+      removeExtraSet(xdel.closest('.ex-card').dataset.day, Number(xdel.dataset.xdel), Number(xdel.dataset.xi));
+      return;
+    }
     const stepBtn = e.target.closest('.w-step');
     if(stepBtn) stepWeight(stepBtn.closest('.ex-card'), Number(stepBtn.dataset.dir));
   });
