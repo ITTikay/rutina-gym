@@ -10,7 +10,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="COHORS NOCTIS">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-192.png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>COHORS NOCTIS</title>
 <style>
@@ -115,9 +116,6 @@
     padding:8px 13px; border-radius:999px; font-size:12px; font-weight:700; flex:0 0 auto;
   }
   .mini-btn.warn{border-color:var(--accent); color:var(--accent);}
-  .status-pill{font-size:11px; font-weight:700; padding:4px 9px; border-radius:999px; flex:0 0 auto;}
-  .status-pill.ok{background:var(--success-dim); color:var(--success);}
-  .status-pill.off{background:#ffffff0f; color:var(--text-faint);}
 
   .cycle-box{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -740,7 +738,6 @@
    repeticiones y descanso, para que al rotar la duración del día no cambie.
    ========================================================================= */
 const SEC_PER_REP = 3.5;        // segundos aproximados por repetición
-const TRANSITION_SECONDS = 120; // cambio de máquina / ajuste de peso
 const EXDB = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
 const DAYS = [
@@ -985,11 +982,21 @@ function goalTune(ex){
   });
 }
 /* Ejercicios que realmente se entrenan hoy: variante disponible + objetivo
-   + cardio final si el objetivo lo pide. Es la única lista que usa la app. */
+   + cardio final si el objetivo lo pide. Es la única lista que usa la app.
+
+   Se memoriza porque se consulta cientos de veces por pantalla (progreso,
+   duración, semanas cumplidas, metas…) y siempre da lo mismo hasta que
+   cambia el ciclo, el objetivo o los equipos eliminados. El resultado es de
+   solo lectura: quien necesite modificarlo debe copiarlo antes. */
+const _exCache = new Map();
+function clearExCache(){ _exCache.clear(); }
 function dayExercises(day){
+  const guardado = _exCache.get(day.id);
+  if(guardado) return guardado;
   const list = day.exercises.slice(0, MAX_EJ_DIA).map(ex => goalTune(activeExercise(ex)));
   const g = goal();
   if(g.cardioMin > 0) list.push(cardioCard(day.id, g.cardioMin));
+  _exCache.set(day.id, list);
   return list;
 }
 
@@ -1036,7 +1043,7 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '2.4';          // se muestra al final de Ajustes, para confirmar actualizaciones
+const APP_VERSION = '2.5';          // se muestra al final de Ajustes, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
 const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
 const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
@@ -2163,7 +2170,11 @@ function animMarkup(type){
   if(type === 'hip' || type === 'core') return `<div class="anim-stage"><div class="mover"></div></div>`;
   return `<div class="anim-stage"><div class="track"></div><div class="mover"></div></div>`;
 }
-function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+/* Texto seguro dentro de un atributo HTML (los nombres de ejercicio libre
+   los escribe el usuario, así que se escapan & " < antes de insertarlos). */
+function escapeAttr(s){
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
 
 function exerciseCard(day, ex, idx, natural){
   // si la variante del ciclo no la tienes, se avisa cuál reemplazó
@@ -2183,8 +2194,8 @@ function exerciseCard(day, ex, idx, natural){
     <article class="ex-card${isFlagged(ex.ref) ? ' flagged-card' : ''}" data-day="${day.id}" data-ex="${idx}" data-ref="${ex.ref}">
       <div class="ex-photo-wrap">
         <span class="photo-badge">Foto real</span>
-        <img class="ex-photo f0" alt="${escapeAttr(ex.name)} - posición inicial" data-src="${EXDB}${ex.ref}/0.jpg" onerror="handleExPhotoError(this)">
-        <img class="ex-photo f1" alt="${escapeAttr(ex.name)} - posición final" data-src="${EXDB}${ex.ref}/1.jpg" onerror="handleExPhotoError(this)">
+        <img class="ex-photo f0" decoding="async" alt="${escapeAttr(ex.name)} - posición inicial" data-src="${EXDB}${ex.ref}/0.jpg" onerror="handleExPhotoError(this)">
+        <img class="ex-photo f1" decoding="async" alt="${escapeAttr(ex.name)} - posición final" data-src="${EXDB}${ex.ref}/1.jpg" onerror="handleExPhotoError(this)">
         <div class="ex-fallback anim-${ex.anim}">
           <span class="anim-badge">Técnica</span>
           ${animMarkup(ex.anim)}
@@ -2368,6 +2379,7 @@ function applyStoredChecks(day){
 
 /* Reconstruye pestañas y vistas (se llama al inicio y al rotar el ciclo). */
 function renderAll(){
+  clearExCache();                 // ciclo, objetivo o equipos pueden haber cambiado
   const days = orderedDays();
   tabsEl.innerHTML = [{id:'warmup', label:'🔥 Calentamiento'}]
     .concat(days.map((d,i)=>({id:d.id, label:`D${i+1} · ${d.tag}`})))

@@ -7,13 +7,14 @@
    Son dos cachés separadas: al publicar una versión nueva de la app solo se
    renueva la de la app, y las fotos ya descargadas se conservan.            */
 
-const APP_CACHE = 'gym-app-v11';
+const APP_CACHE = 'gym-app-v12';
 const PHOTO_CACHE = 'gym-rutina-v1';   // nombre heredado: ahí ya están tus fotos
 
 const SHELL = [
   './',
   './index.html',
   './manifest.json',
+  './favicon.ico',
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png'

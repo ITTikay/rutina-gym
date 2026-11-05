@@ -46,6 +46,7 @@ App web (PWA) de rutina de gimnasio de 5 días, pensada para el celular.
 | Archivo | Para qué sirve |
 |---|---|
 | `index.html` | La app completa (HTML + CSS + JS) |
+| `favicon.ico` | Ícono de la pestaña del navegador |
 | `manifest.json` | Datos de instalación de la PWA (nombre, íconos, colores) |
 | `sw.js` | Service worker: caché offline de la app y de las fotos |
 | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | Íconos de la app |
