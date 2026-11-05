@@ -264,6 +264,33 @@
   }
   .extra-chip small{color:var(--text-faint); font-weight:600; margin-left:4px;}
 
+  /* ejercicio libre: lo que hiciste fuera de la rutina */
+  .free-box{
+    background:var(--card); border:1px dashed var(--border); border-radius:var(--radius);
+    padding:14px; margin-bottom:14px;
+  }
+  .free-title{font-size:13.5px; font-weight:800;}
+  .free-hint{font-size:11.5px; color:var(--text-faint); line-height:1.45; margin-top:4px;}
+  .free-add{
+    width:100%; margin-top:11px; background:transparent; border:1px solid var(--accent2);
+    color:var(--accent2); padding:11px; border-radius:var(--radius-sm); font-size:13px; font-weight:800;
+  }
+  .free-item{background:var(--card-alt); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; margin-top:11px;}
+  .free-top{display:flex; align-items:center; gap:8px;}
+  .free-name{
+    flex:1; min-width:0; background:var(--bg); border:2px solid var(--border); border-radius:10px;
+    color:var(--text); font-family:inherit; font-size:13.5px; font-weight:700; padding:9px 11px;
+  }
+  .free-name:focus{outline:none; border-color:var(--accent2);}
+  .free-del{
+    flex:0 0 auto; width:38px; height:38px; border-radius:10px; background:transparent;
+    border:1px solid var(--border); color:var(--text-faint); font-size:15px;
+  }
+  .free-ctl{display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;}
+  .free-grp{display:flex; align-items:center; gap:7px;}
+  .free-ctl .w-label{margin-right:0;}
+  .free-ctl .w-input{width:54px; pointer-events:none;}
+
   /* ---------- Registro de peso por ejercicio ---------- */
   .weight-row{display:flex; align-items:center; gap:8px; margin-top:12px;}
   .w-label{font-size:11px; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; margin-right:2px;}
@@ -856,7 +883,7 @@ function defaultState(){
            progress:{}, weightLog:{}, doneLog:{}, bodyWeight:{}, reportSeen:{},
            planStart:null, lastRotation:null, rotateAlertSeen:null,
            weekDaysGoal:2, bonusWeeks:0, autoRest:'first', loudRestAlarm:true,
-           unavailable:{}, removed:{}, goal:'masa', extraSets:{}, pendingAlarm:null };
+           unavailable:{}, removed:{}, goal:'masa', extraSets:{}, freeEx:{}, pendingAlarm:null };
 }
 function loadState(){
   try{
@@ -987,7 +1014,7 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '2.2';          // se muestra al final de Ajustes, para confirmar actualizaciones
+const APP_VERSION = '2.3';          // se muestra al final de Ajustes, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
 const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
 const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
@@ -1043,6 +1070,7 @@ function doRotate(){
   state.reportSeen = {};                 // que el reporte vuelva a salir con los ejercicios nuevos
   for(const d of DAYS) state.progress[d.id] = {};
   state.extraSets = {};
+  state.freeEx = {};
   saveState();
   renderAll();
   showView('warmup');
@@ -1574,14 +1602,93 @@ function refreshAllExtras(day){
   dayExercises(day).forEach((ex,i) => refreshExtra(day.id, i));
 }
 
+/* =========================================================================
+   EJERCICIO LIBRE
+   Para lo que hiciste y no estaba en la rutina (p. ej. lumbares en el día de
+   piernas). Le pones nombre y series; cada serie marcada arranca el descanso
+   de 45 s. Igual que las series extra, NO cuenta para el 75% ni para la meta
+   de peso: es trabajo adicional.
+   Se guarda como state.freeEx[díaId] = [{nombre, sets, reps, hechas:[]}]
+   ========================================================================= */
+function freeList(dayId){ return state.freeEx[dayId] || []; }
+
+function freeItemHtml(dayId, item, i){
+  const checks = Array.from({length:item.sets}, (_,s)=>`
+    <label class="set-check">
+      <input type="checkbox" class="free-check" data-fday="${dayId}" data-fi="${i}" data-fs="${s}"${item.hechas[s] ? ' checked' : ''}>
+      <span class="set-box"><span class="num">${s+1}</span><span class="chk">✓</span></span>
+    </label>`).join('');
+  return `
+    <div class="free-item">
+      <div class="free-top">
+        <input class="free-name" type="text" maxlength="40" placeholder="¿Qué hiciste? Ej: lumbares"
+               value="${escapeAttr(item.nombre)}" data-fname="${i}" data-fday="${dayId}"
+               aria-label="Nombre del ejercicio libre">
+        <button type="button" class="free-del" data-fdel="${i}" data-fday="${dayId}" aria-label="Quitar ejercicio libre">✕</button>
+      </div>
+      <div class="free-ctl">
+        <span class="free-grp">
+          <span class="w-label">Series</span>
+          <button type="button" class="w-step" data-fsets="-1" data-fi="${i}" data-fday="${dayId}">−</button>
+          <input class="w-input" value="${item.sets}" readonly tabindex="-1" aria-label="Número de series">
+          <button type="button" class="w-step" data-fsets="1" data-fi="${i}" data-fday="${dayId}">+</button>
+        </span>
+        <span class="free-grp">
+          <span class="w-label">Reps</span>
+          <button type="button" class="w-step" data-freps="-1" data-fi="${i}" data-fday="${dayId}">−</button>
+          <input class="w-input" value="${item.reps}" readonly tabindex="-1" aria-label="Repeticiones">
+          <button type="button" class="w-step" data-freps="1" data-fi="${i}" data-fday="${dayId}">+</button>
+        </span>
+      </div>
+      <div class="set-row">${checks}</div>
+    </div>`;
+}
+function refreshFree(dayId){
+  const cont = document.getElementById('free-' + dayId);
+  if(cont) cont.innerHTML = freeList(dayId).map((it,i) => freeItemHtml(dayId, it, i)).join('');
+}
+function addFreeEx(dayId){
+  const lista = state.freeEx[dayId] || (state.freeEx[dayId] = []);
+  lista.push({ nombre:'', sets:3, reps:12, hechas:[false,false,false] });
+  saveState();
+  refreshFree(dayId);
+  const campos = document.querySelectorAll(`#free-${dayId} .free-name`);
+  if(campos.length) campos[campos.length-1].focus();
+}
+function removeFreeEx(dayId, i){
+  const lista = freeList(dayId);
+  lista.splice(i, 1);
+  if(!lista.length) delete state.freeEx[dayId];
+  saveState();
+  refreshFree(dayId);
+}
+function setFreeSets(dayId, i, delta){
+  const it = freeList(dayId)[i];
+  if(!it) return;
+  it.sets = Math.min(10, Math.max(1, it.sets + delta));
+  while(it.hechas.length < it.sets) it.hechas.push(false);
+  it.hechas.length = it.sets;
+  saveState();
+  refreshFree(dayId);
+}
+function setFreeReps(dayId, i, delta){
+  const it = freeList(dayId)[i];
+  if(!it) return;
+  it.reps = Math.min(99, Math.max(1, it.reps + delta));
+  saveState();
+  refreshFree(dayId);
+}
+
 function resetDay(dayId){
   state.progress[dayId] = {};
   delete state.extraSets[dayId];          // las extra son de la sesión, se van con ella
+  delete state.freeEx[dayId];             // y los ejercicios libres también
   saveState();
   const dayObj = DAYS.find(d => d.id === dayId);
   applyStoredChecks(dayObj);
   refreshDayProgress(dayObj);
   refreshAllExtras(dayObj);
+  refreshFree(dayId);
 }
 
 /* =========================================================================
@@ -2171,6 +2278,12 @@ function buildDayView(day, position){
     </div>
     <button class="report-btn" data-report="${day.id}">📋 Pesos de la semana anterior y metas de hoy</button>
     <div id="exlist-${day.id}"></div>
+    <div class="free-box">
+      <div class="free-title">➕ ¿Hiciste algo que no está en la rutina?</div>
+      <p class="free-hint">Añádelo aquí con sus series. Cada serie que marques arranca el descanso de 45 s.</p>
+      <div id="free-${day.id}"></div>
+      <button type="button" class="free-add" data-freeadd="${day.id}">➕ Añadir ejercicio libre</button>
+    </div>
     <button class="reset-day-btn" data-reset="${day.id}">Reiniciar progreso de hoy</button>
   `;
   daysContainer.appendChild(wrap);
@@ -2238,7 +2351,7 @@ function renderAll(){
 
   daysContainer.innerHTML = '';
   days.forEach((d,i)=> buildDayView(d, i+1));
-  days.forEach(d=>{ applyStoredChecks(d); refreshDayProgress(d); refreshAllExtras(d); });
+  days.forEach(d=>{ applyStoredChecks(d); refreshDayProgress(d); refreshAllExtras(d); refreshFree(d.id); });
   refreshWeightUI();
   updateUnitSeg();
 
@@ -2586,6 +2699,24 @@ function init(){
     showView(suggestedDayId() || orderedDays()[0].id);
   });
 
+  // nombre del ejercicio libre: se guarda mientras escribes, sin repintar
+  daysContainer.addEventListener('input', e=>{
+    if(!e.target.classList.contains('free-name')) return;
+    const it = freeList(e.target.dataset.fday)[Number(e.target.dataset.fname)];
+    if(it){ it.nombre = e.target.value; saveState(); }
+  });
+
+  // series del ejercicio libre: al marcarlas arranca el descanso de 45 s
+  document.addEventListener('change', e=>{
+    if(!e.target.classList.contains('free-check')) return;
+    const { fday, fi, fs } = e.target.dataset;
+    const it = freeList(fday)[Number(fi)];
+    if(!it) return;
+    it.hechas[Number(fs)] = e.target.checked;
+    saveState();
+    if(e.target.checked && state.autoRest !== 'off') startRest(AUTO_REST_SECONDS);
+  });
+
   // checkboxes de series (evento delegado)
   document.addEventListener('change', e=>{
     if(!e.target.classList.contains('set-input')) return;
@@ -2637,6 +2768,16 @@ function init(){
       removeExtraSet(xdel.closest('.ex-card').dataset.day, Number(xdel.dataset.xdel), Number(xdel.dataset.xi));
       return;
     }
+
+    // ejercicio libre
+    const fadd = e.target.closest('[data-freeadd]');
+    if(fadd){ addFreeEx(fadd.dataset.freeadd); return; }
+    const fdel = e.target.closest('[data-fdel]');
+    if(fdel){ removeFreeEx(fdel.dataset.fday, Number(fdel.dataset.fdel)); return; }
+    const fsets = e.target.closest('[data-fsets]');
+    if(fsets){ setFreeSets(fsets.dataset.fday, Number(fsets.dataset.fi), Number(fsets.dataset.fsets)); return; }
+    const freps = e.target.closest('[data-freps]');
+    if(freps){ setFreeReps(freps.dataset.fday, Number(freps.dataset.fi), Number(freps.dataset.freps)); return; }
     const stepBtn = e.target.closest('.w-step');
     if(stepBtn) stepWeight(stepBtn.closest('.ex-card'), Number(stepBtn.dataset.dir));
   });
