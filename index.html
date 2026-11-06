@@ -346,6 +346,7 @@
 
   /* plan de progresión en Ajustes */
   .set-line.stack{flex-direction:column; align-items:stretch; gap:9px;}
+  [hidden]{display:none !important;}   /* si no, display:flex gana al atributo hidden */
   .plan-seg button{flex:1;}
 
   .bonus-ctl{display:flex; align-items:center; gap:8px; flex:0 0 auto;}
@@ -610,7 +611,7 @@
       <div class="set-line">
         <div class="set-label">
           Alarma fuerte al terminar el descanso
-          <small>Suena al tope que permite el navegador y se repite cada 5 s hasta que la apagas; los demás avisos quedan al volumen normal.</small>
+          <small>Suena al tope que permite el navegador, se repite cada 5 s y se apaga sola a los 15 s para no molestar en el gimnasio.</small>
         </div>
         <label class="switch">
           <input type="checkbox" id="loudAlarmToggle">
@@ -624,6 +625,14 @@
           <small>Una app web no puede cambiar el volumen del celular: súbelo tú antes de entrenar y prueba aquí cómo se oye.</small>
         </div>
         <button type="button" class="mini-btn" id="testAlarmBtn">🔊 Probar</button>
+      </div>
+
+      <div class="set-line">
+        <div class="set-label">
+          Espacio usado en el celular
+          <small id="cacheInfo">Calculando…</small>
+        </div>
+        <button type="button" class="mini-btn" id="clearPhotosBtn">🧹 Liberar</button>
       </div>
 
       <div class="set-line">
@@ -902,7 +911,8 @@ function defaultState(){
            progress:{}, weightLog:{}, doneLog:{}, bodyWeight:{}, reportSeen:{},
            planStart:null, lastRotation:null, rotateAlertSeen:null,
            weekDaysGoal:2, bonusWeeks:0, autoRest:'first', loudRestAlarm:true,
-           unavailable:{}, removed:{}, goal:'masa', extraSets:{}, freeEx:{}, pendingAlarm:null };
+           unavailable:{}, removed:{}, goal:'masa', extraSets:{}, freeEx:{}, extraLog:{},
+           pendingAlarm:null };
 }
 function loadState(){
   try{
@@ -1043,12 +1053,14 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '2.5';          // se muestra al final de Ajustes, para confirmar actualizaciones
+const APP_VERSION = '2.6';          // se muestra al final de Ajustes, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
 const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
 const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
-const ALARM_REPEAT_SECONDS = 5;         // la alarma insiste cada 5 s hasta que la apagas
-const ALARM_REPEAT_COUNT = 24;          // ~2 minutos de recordatorios
+const ALARM_REPEAT_SECONDS = 5;         // la alarma insiste cada 5 s…
+const ALARM_WINDOW_SECONDS = 15;        // …pero se apaga sola a los 15 s, para no
+                                        // molestar al resto del gimnasio
+const ALARM_REPEAT_COUNT = Math.ceil(ALARM_WINDOW_SECONDS / ALARM_REPEAT_SECONDS); // 3 tandas: 0, 5 y 10 s
 
 /* Días cumplidos (75%+ de sus series) en esa semana. */
 function trainedDaysInWeek(week){
@@ -1100,6 +1112,7 @@ function doRotate(){
   for(const d of DAYS) state.progress[d.id] = {};
   state.extraSets = {};
   state.freeEx = {};
+  state.extraLog = {};
   saveState();
   renderAll();
   showView('warmup');
@@ -1199,8 +1212,36 @@ const MIN_COMPLETION = 0.75;
 function minSets(sets){ return Math.ceil(sets * MIN_COMPLETION - 1e-9); }
 function pctStr(p){ return Math.round(p * 100) + '%'; }
 
-/* % de la rutina del día hecho en una semana. null = esa semana no se marcó
-   ninguna casilla del día (no hay con qué medir). */
+/* Series que hiciste fuera de la rutina ese día: las "series extra" de un
+   ejercicio terminado más las series marcadas de los ejercicios libres.
+   Cuentan para el porcentaje del día: si te saltas un ejercicio de la rutina
+   pero haces otro en su lugar, el trabajo igual suma. */
+function extraSetsToday(dayId){
+  let n = 0;
+  Object.values(state.extraSets[dayId] || {}).forEach(arr => { n += arr.length; });
+  (state.freeEx[dayId] || []).forEach(it => { n += it.hechas.filter(Boolean).length; });
+  return n;
+}
+/* Copia del total anterior por semana, para que el porcentaje histórico
+   (el que decide si la semana fue cumplida) también las tenga en cuenta. */
+function syncExtraLog(dayId){
+  const n = extraSetsToday(dayId);
+  const log = state.extraLog[dayId] || (state.extraLog[dayId] = {});
+  const w = weekKey();
+  if(n) log[w] = n; else delete log[w];
+  trimWeeks(log);
+  if(!Object.keys(log).length) delete state.extraLog[dayId];
+  // el anillo del día cambia con cada serie extra, así que se repinta aquí
+  const day = DAYS.find(d => d.id === dayId);
+  if(day && document.getElementById('pct-' + dayId)) refreshDayProgress(day);
+}
+function extraSetsOfWeek(dayId, week){
+  const log = state.extraLog[dayId];
+  return (log && log[week]) || 0;
+}
+
+/* % de la rutina del día hecho en una semana, contando las series extra.
+   null = esa semana no se marcó nada de ese día (no hay con qué medir). */
 function dayCompletion(dayId, week){
   const day = DAYS.find(d => d.id === dayId);
   let done = 0, total = 0, any = false;
@@ -1209,7 +1250,9 @@ function dayCompletion(dayId, week){
     const v = state.doneLog[ex.ref] ? state.doneLog[ex.ref][week] : undefined;
     if(v !== undefined){ any = true; done += Math.min(v, ex.sets); }
   });
-  return any ? done / total : null;
+  const extra = extraSetsOfWeek(dayId, week);
+  if(extra) any = true;
+  return any ? Math.min(1, (done + extra) / total) : null;
 }
 /* Última semana pasada en la que marcaste series de este día. */
 function lastTrackedWeek(dayId){
@@ -1399,6 +1442,30 @@ function setGoal(id){
   saveState();
   renderAll();
   showView(vista);
+}
+
+/* Espacio que ocupan las fotos guardadas para usar la app sin señal. */
+async function updateCacheInfo(){
+  const el = document.getElementById('cacheInfo');
+  if(!el) return;
+  try{
+    let fotos = 0;
+    if('caches' in window){
+      const c = await caches.open('gym-rutina-v1');
+      fotos = (await c.keys()).length;
+    }
+    const est = navigator.storage && navigator.storage.estimate
+      ? await navigator.storage.estimate() : null;
+    const mb = est && est.usage ? (est.usage/1048576).toFixed(1) + ' MB' : '—';
+    el.textContent = `${mb} · ${fotos} fotos guardadas (tope ${120}). Se borran solas las más viejas.`;
+  }catch(e){ el.textContent = 'No disponible en este navegador.'; }
+}
+async function clearPhotoCache(){
+  try{
+    if('caches' in window) await caches.delete('gym-rutina-v1');
+    document.getElementById('cacheInfo').textContent =
+      'Fotos borradas. Se vuelven a guardar solas cuando abras cada día con internet.';
+  }catch(e){}
 }
 
 function updateAutoRestSeg(){
@@ -1622,6 +1689,7 @@ function refreshExtra(dayId, idx){
 function addExtraSet(dayId, idx, reps){
   const dia = state.extraSets[dayId] || (state.extraSets[dayId] = {});
   (dia[idx] || (dia[idx] = [])).push(reps);
+  syncExtraLog(dayId);
   saveState();
   refreshExtra(dayId, idx);
   startRest(AUTO_REST_SECONDS);          // mismo descanso de 45 s
@@ -1630,6 +1698,7 @@ function removeExtraSet(dayId, idx, i){
   const lista = extraList(dayId, idx);
   lista.splice(i, 1);
   if(!lista.length && state.extraSets[dayId]) delete state.extraSets[dayId][idx];
+  syncExtraLog(dayId);
   saveState();
   refreshExtra(dayId, idx);
 }
@@ -1694,6 +1763,7 @@ function removeFreeEx(dayId, i){
   const lista = freeList(dayId);
   lista.splice(i, 1);
   if(!lista.length) delete state.freeEx[dayId];
+  syncExtraLog(dayId);
   saveState();
   refreshFree(dayId);
 }
@@ -1703,6 +1773,7 @@ function setFreeSets(dayId, i, delta){
   it.sets = Math.min(10, Math.max(1, it.sets + delta));
   while(it.hechas.length < it.sets) it.hechas.push(false);
   it.hechas.length = it.sets;
+  syncExtraLog(dayId);
   saveState();
   refreshFree(dayId);
 }
@@ -1718,6 +1789,7 @@ function resetDay(dayId){
   state.progress[dayId] = {};
   delete state.extraSets[dayId];          // las extra son de la sesión, se van con ella
   delete state.freeEx[dayId];             // y los ejercicios libres también
+  syncExtraLog(dayId);                    // y su aporte al porcentaje de la semana
   saveState();
   const dayObj = DAYS.find(d => d.id === dayId);
   applyStoredChecks(dayObj);
@@ -2041,14 +2113,19 @@ function setScreenFlash(on){
 
 /* Vibración que acompaña a la alarma repetida (solo si el JS está vivo). */
 let alertVibeId = null;
+/* Arranca el aviso (vibración + parpadeo) y lo apaga solo a los 15 s. */
+let alertOffId = null;
 function startAlertVibration(){
   stopAlertVibration();
   vibrate([400,150,400,150,600]);
   alertVibeId = setInterval(()=> vibrate([400,150,400]), ALARM_REPEAT_SECONDS*1000);
-  setTimeout(stopAlertVibration, ALARM_REPEAT_SECONDS*ALARM_REPEAT_COUNT*1000);
+  alertOffId = setTimeout(()=>{
+    if(restBar.classList.contains('alert')) cancelRest();   // se cierra solo
+  }, ALARM_WINDOW_SECONDS*1000);
 }
 function stopAlertVibration(){
   if(alertVibeId){ clearInterval(alertVibeId); alertVibeId = null; }
+  if(alertOffId){ clearTimeout(alertOffId); alertOffId = null; }
 }
 /* Apaga el tono que mantiene vivo el audio, pero solo si ya no hace falta. */
 function stopKeepAliveIfIdle(){
@@ -2347,6 +2424,7 @@ function refreshDayProgress(day){
     const card = document.querySelector(`.ex-card[data-day="${day.id}"][data-ex="${i}"]`);
     if(card) card.classList.toggle('done', exDone);
   });
+  done = Math.min(total, done + extraSetsToday(day.id));   // lo hecho fuera de la rutina también suma
   const pct = total ? Math.round(done/total*100) : 0;
   const ring = document.getElementById('ring-' + day.id);
   const label = document.getElementById('pct-' + day.id);
@@ -2442,6 +2520,7 @@ function showView(id){
     maybeAutoReport(id);    // primera vez en la semana: pesos anteriores y metas
   }
   if(id === 'history') renderHistory();
+  if(id === 'config') updateCacheInfo();
   window.scrollTo({top:0, behavior:'instant'});
 }
 function suggestedDayId(){
@@ -2583,7 +2662,7 @@ function restTick(){
     restTimer.running = false;
     clearPendingAlarm();
     setScreenFlash(true);
-    restMsgLabel.textContent = '¡Descanso terminado! Suena cada 5 s hasta que toques Cancelar 💪';
+    restMsgLabel.textContent = '¡Descanso terminado! Vuelve a la máquina 💪';
     startAlertVibration();
     showAlarmNotification('¡Descanso terminado! 💪', 'Vuelve a la máquina.');
   }
@@ -2684,6 +2763,7 @@ function init(){
     if(restTimer.running) scheduleAlarmSound(Math.max(0,(restTimer.endAt - Date.now())/1000), restAlarmGain());
   });
   document.getElementById('testAlarmBtn').addEventListener('click', testAlarm);
+  document.getElementById('clearPhotosBtn').addEventListener('click', clearPhotoCache);
 
   document.getElementById('goalGrid').addEventListener('click', e=>{
     const b = e.target.closest('button[data-goal]');
@@ -2753,7 +2833,9 @@ function init(){
     const it = freeList(fday)[Number(fi)];
     if(!it) return;
     it.hechas[Number(fs)] = e.target.checked;
+    syncExtraLog(fday);
     saveState();
+    refreshDayProgress(DAYS.find(d=>d.id===fday));
     if(e.target.checked && state.autoRest !== 'off') startRest(AUTO_REST_SECONDS);
   });
 

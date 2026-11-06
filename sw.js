@@ -7,8 +7,20 @@
    Son dos cachés separadas: al publicar una versión nueva de la app solo se
    renueva la de la app, y las fotos ya descargadas se conservan.            */
 
-const APP_CACHE = 'gym-app-v12';
+const APP_CACHE = 'gym-app-v13';
 const PHOTO_CACHE = 'gym-rutina-v1';   // nombre heredado: ahí ya están tus fotos
+
+/* Tope de fotos guardadas (~70 KB cada una). La rutina activa necesita unas
+   90 (5 días × 9 ejercicios × 2 tomas); con 120 cabe de sobra y, al rotar,
+   las que se borran primero son las de la variante vieja, que ya no se usa.
+   Sin este tope la caché podía crecer hasta ~18 MB con las 3 variantes. */
+const MAX_FOTOS = 120;
+
+async function limitarFotos(cache){
+  const keys = await cache.keys();          // vienen en orden de inserción
+  const sobran = keys.length - MAX_FOTOS;
+  if (sobran > 0) await Promise.all(keys.slice(0, sobran).map(k => cache.delete(k)));
+}
 
 const SHELL = [
   './',
@@ -40,6 +52,7 @@ self.addEventListener('activate', event => {
     await Promise.all(reqs
       .filter(r => new URL(r.url).hostname !== 'raw.githubusercontent.com')
       .map(r => photos.delete(r)));
+    await limitarFotos(photos);              // aplica el tope a lo ya guardado
     await self.clients.claim();
   })());
 });
@@ -60,7 +73,10 @@ self.addEventListener('fetch', event => {
       try {
         const res = await fetch(req);
         // las respuestas de otro dominio son "opaque": igual sirven para <img>
-        if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());
+        if (res && (res.ok || res.type === 'opaque')) {
+          await cache.put(req, res.clone());
+          await limitarFotos(cache);
+        }
         return res;
       } catch (err) {
         return Response.error();
