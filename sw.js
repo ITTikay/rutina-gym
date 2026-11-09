@@ -7,7 +7,7 @@
    Son dos cachés separadas: al publicar una versión nueva de la app solo se
    renueva la de la app, y las fotos ya descargadas se conservan.            */
 
-const APP_CACHE = 'gym-app-v13';
+const APP_CACHE = 'gym-app-v14';
 const PHOTO_CACHE = 'gym-rutina-v1';   // nombre heredado: ahí ya están tus fotos
 
 /* Tope de fotos guardadas (~70 KB cada una). La rutina activa necesita unas

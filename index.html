@@ -285,6 +285,19 @@
     flex:0 0 auto; width:38px; height:38px; border-radius:10px; background:transparent;
     border:1px solid var(--border); color:var(--text-faint); font-size:15px;
   }
+  .free-item.done{opacity:.6; border-color:var(--success-dim);}
+  .free-item.done .free-name{text-decoration:line-through; color:var(--text-dim);}
+  .free-ok{
+    width:100%; margin-top:10px; background:var(--accent2); border:none; color:#04262b;
+    padding:11px; border-radius:var(--radius-sm); font-size:13px; font-weight:800;
+  }
+  .free-resumen{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; font-size:13px;}
+  .free-resumen b{color:var(--accent2);}
+  .free-edit{
+    background:transparent; border:1px solid var(--border); color:var(--text-faint);
+    padding:7px 12px; border-radius:999px; font-size:11.5px; font-weight:700; flex:0 0 auto;
+  }
+  .free-check:disabled + .set-box{opacity:.35;}
   .free-ctl{display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;}
   .free-grp{display:flex; align-items:center; gap:7px;}
   .free-ctl .w-label{margin-right:0;}
@@ -1053,7 +1066,7 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '2.6';          // se muestra al final de Ajustes, para confirmar actualizaciones
+const APP_VERSION = '2.7';          // se muestra al final de Ajustes, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
 const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
 const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
@@ -1194,6 +1207,21 @@ function recordDone(dayId, exIdx){
   const log = state.doneLog[ex.ref] || (state.doneLog[ex.ref] = {});
   log[weekKey()] = done;
   trimWeeks(log);
+  if(!ex.cardio) carryWeightForward(ex.ref, done, ex.sets);
+}
+
+/* Si ya hiciste el ejercicio (75% de sus series) y no anotaste peso esta
+   semana, se guarda el último peso conocido: entrenaste con ese, así que el
+   histórico no debe quedar con un hueco. Si luego escribes otro, lo pisa. */
+function carryWeightForward(ref, done, sets){
+  if(done < minSets(sets)) return;
+  if(weightThisWeek(ref) !== undefined) return;
+  const prev = weightPrevWeek(ref);
+  if(!prev) return;
+  const log = state.weightLog[ref] || (state.weightLog[ref] = {});
+  log[weekKey()] = prev.kg;
+  trimWeeks(log);
+  refreshWeightUI(ref);
 }
 
 /* =========================================================================
@@ -1717,19 +1745,19 @@ function refreshAllExtras(day){
 function freeList(dayId){ return state.freeEx[dayId] || []; }
 
 function freeItemHtml(dayId, item, i){
+  const listo = !!item.listo;
+  const hechas = item.hechas.filter(Boolean).length;
+  const completo = listo && hechas >= item.sets;
   const checks = Array.from({length:item.sets}, (_,s)=>`
     <label class="set-check">
-      <input type="checkbox" class="free-check" data-fday="${dayId}" data-fi="${i}" data-fs="${s}"${item.hechas[s] ? ' checked' : ''}>
+      <input type="checkbox" class="free-check" data-fday="${dayId}" data-fi="${i}" data-fs="${s}"${
+        item.hechas[s] ? ' checked' : ''}${listo ? '' : ' disabled'}>
       <span class="set-box"><span class="num">${s+1}</span><span class="chk">✓</span></span>
     </label>`).join('');
-  return `
-    <div class="free-item">
-      <div class="free-top">
-        <input class="free-name" type="text" maxlength="40" placeholder="¿Qué hiciste? Ej: lumbares"
-               value="${escapeAttr(item.nombre)}" data-fname="${i}" data-fday="${dayId}"
-               aria-label="Nombre del ejercicio libre">
-        <button type="button" class="free-del" data-fdel="${i}" data-fday="${dayId}" aria-label="Quitar ejercicio libre">✕</button>
-      </div>
+
+  // mientras configuras: ± series y reps + botón Aceptar.
+  // una vez aceptado: resumen fijo y las series quedan activas para marcarlas.
+  const config = `
       <div class="free-ctl">
         <span class="free-grp">
           <span class="w-label">Series</span>
@@ -1744,6 +1772,23 @@ function freeItemHtml(dayId, item, i){
           <button type="button" class="w-step" data-freps="1" data-fi="${i}" data-fday="${dayId}">+</button>
         </span>
       </div>
+      <button type="button" class="free-ok" data-fok="${i}" data-fday="${dayId}">✓ Aceptar e iniciar</button>`;
+
+  const resumen = `
+      <div class="free-resumen">
+        <span><b>${item.sets}</b> series × <b>${item.reps}</b> reps</span>
+        <button type="button" class="free-edit" data-fedit="${i}" data-fday="${dayId}">✎ Cambiar</button>
+      </div>`;
+
+  return `
+    <div class="free-item${completo ? ' done' : ''}">
+      <div class="free-top">
+        <input class="free-name" type="text" maxlength="40" placeholder="¿Qué hiciste? Ej: lumbares"
+               value="${escapeAttr(item.nombre)}" data-fname="${i}" data-fday="${dayId}"
+               aria-label="Nombre del ejercicio libre">
+        <button type="button" class="free-del" data-fdel="${i}" data-fday="${dayId}" aria-label="Quitar ejercicio libre">✕</button>
+      </div>
+      ${listo ? resumen : config}
       <div class="set-row">${checks}</div>
     </div>`;
 }
@@ -1753,7 +1798,7 @@ function refreshFree(dayId){
 }
 function addFreeEx(dayId){
   const lista = state.freeEx[dayId] || (state.freeEx[dayId] = []);
-  lista.push({ nombre:'', sets:3, reps:12, hechas:[false,false,false] });
+  lista.push({ nombre:'', sets:3, reps:12, hechas:[false,false,false], listo:false });
   saveState();
   refreshFree(dayId);
   const campos = document.querySelectorAll(`#free-${dayId} .free-name`);
@@ -1781,6 +1826,14 @@ function setFreeReps(dayId, i, delta){
   const it = freeList(dayId)[i];
   if(!it) return;
   it.reps = Math.min(99, Math.max(1, it.reps + delta));
+  saveState();
+  refreshFree(dayId);
+}
+/* Aceptar deja fijas series y reps y habilita las casillas para marcarlas. */
+function setFreeListo(dayId, i, listo){
+  const it = freeList(dayId)[i];
+  if(!it) return;
+  it.listo = listo;
   saveState();
   refreshFree(dayId);
 }
@@ -2836,7 +2889,13 @@ function init(){
     syncExtraLog(fday);
     saveState();
     refreshDayProgress(DAYS.find(d=>d.id===fday));
-    if(e.target.checked && state.autoRest !== 'off') startRest(AUTO_REST_SECONDS);
+    // mismo comportamiento que las series de la rutina: 45 s entre series y
+    // 1 minuto al completar todas las del ejercicio
+    if(e.target.checked && state.autoRest !== 'off'){
+      const completo = it.hechas.filter(Boolean).length >= it.sets;
+      startRest(completo ? AUTO_REST_EXERCISE_SECONDS : AUTO_REST_SECONDS);
+    }
+    e.target.closest('.free-item').classList.toggle('done', it.hechas.filter(Boolean).length >= it.sets);
   });
 
   // checkboxes de series (evento delegado)
@@ -2900,6 +2959,10 @@ function init(){
     if(fsets){ setFreeSets(fsets.dataset.fday, Number(fsets.dataset.fi), Number(fsets.dataset.fsets)); return; }
     const freps = e.target.closest('[data-freps]');
     if(freps){ setFreeReps(freps.dataset.fday, Number(freps.dataset.fi), Number(freps.dataset.freps)); return; }
+    const fok = e.target.closest('[data-fok]');
+    if(fok){ setFreeListo(fok.dataset.fday, Number(fok.dataset.fok), true); return; }
+    const fedit = e.target.closest('[data-fedit]');
+    if(fedit){ setFreeListo(fedit.dataset.fday, Number(fedit.dataset.fedit), false); return; }
     const stepBtn = e.target.closest('.w-step');
     if(stepBtn) stepWeight(stepBtn.closest('.ex-card'), Number(stepBtn.dataset.dir));
   });
