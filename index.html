@@ -244,6 +244,16 @@
   .set-input:checked + .set-box{background:var(--success); border-color:var(--success); color:#052e17;}
   .set-input:checked + .set-box .num{opacity:0; transform:scale(.4);}
   .set-input:checked + .set-box .chk{opacity:1; transform:scale(1);}
+  /* serie añadida sobre la marcha: se ve distinta de las del plan */
+  .set-check.added .set-box{border-style:dashed; border-color:var(--accent2); color:var(--accent2);}
+  .set-check.added .set-input:checked + .set-box{border-style:solid;}
+  .addset-btn{
+    display:block; width:100%; margin-top:10px; background:transparent;
+    border:1px dashed var(--accent2); color:var(--accent2);
+    padding:9px 12px; border-radius:var(--radius-sm); font-size:12px; font-weight:800;
+  }
+  .addset-btn:active{background:#22d3ee1a;}
+  .duration b.over{color:#fbbf24;}
 
   /* series extra: solo aparecen cuando ya terminaste todas las series */
   .extra-box{display:none; margin-top:12px; padding-top:11px; border-top:1px dashed var(--border);}
@@ -420,6 +430,32 @@
   .rest-bar.alert{animation:alertFlash .5s ease infinite;}
   @keyframes alertFlash{0%,100%{background:var(--bg-elevated);} 50%{background:var(--danger);}}
 
+  /* foto ampliada: se toca la foto de la tarjeta y se ve en grande */
+  .ex-photo-wrap:not(.broken){cursor:zoom-in;}
+  .photo-zoom{
+    position:absolute; right:8px; bottom:8px; z-index:2; font-size:14px; line-height:1;
+    background:#000000b3; color:#fff; padding:6px 8px; border-radius:8px; pointer-events:none;
+  }
+  .photo-modal{
+    position:fixed; inset:0; z-index:60; background:#000000fa;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:calc(18px + var(--safe-top)) 14px calc(18px + var(--safe-bottom));
+  }
+  .photo-stage{position:relative; width:100%; max-width:760px; aspect-ratio:3/2;}
+  .photo-big{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; border-radius:var(--radius-sm);}
+  .photo-big.f0{animation:crossfadeA 2.6s ease-in-out infinite;}
+  .photo-big.f1{opacity:0; animation:crossfadeB 2.6s ease-in-out infinite;}
+  .photo-caption{
+    margin-top:16px; text-align:center; font-size:15px; font-weight:800; line-height:1.35;
+    max-width:760px;
+  }
+  .photo-caption small{display:block; color:var(--text-faint); font-size:12px; font-weight:600; margin-top:6px;}
+  .photo-close{
+    position:absolute; top:calc(12px + var(--safe-top)); right:14px; z-index:2;
+    width:42px; height:42px; border-radius:50%; border:1px solid var(--border);
+    background:var(--card); color:var(--text); font-size:17px;
+  }
+
   /* al terminar el descanso parpadea toda la pantalla, al mismo ritmo que el reloj */
   .screen-flash{
     position:fixed; inset:0; z-index:25; pointer-events:none;
@@ -454,11 +490,17 @@
     flex:1; background:var(--card); border:1px solid var(--border); color:var(--text);
     padding:12px 6px; border-radius:var(--radius-sm); font-weight:800; font-size:13.5px;
   }
-  .rest-running{display:none; align-items:center; gap:14px;}
+  .rest-running{display:none; align-items:center; gap:10px 14px; flex-wrap:wrap;}
   .rest-running.show{display:flex;}
   .rest-time{font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; flex:0 0 auto;}
   .rest-msg{flex:1; font-size:13px; color:var(--text-dim); line-height:1.35;}
   .rest-running .btn-ghost{padding:10px 14px; font-size:13px; min-width:auto;}
+  .rest-actions{display:flex; gap:8px; align-items:center; width:100%; justify-content:flex-end;}
+  .rest-plus{
+    background:transparent; border:1px solid var(--border); color:var(--accent2);
+    padding:10px; border-radius:var(--radius-sm); font-size:12.5px; font-weight:800;
+  }
+  .rest-plus:active{border-color:var(--accent2);}
 
   footer.hint{text-align:center; color:var(--text-faint); font-size:11px; padding:10px 20px 4px; line-height:1.5;}
 
@@ -621,6 +663,20 @@
         </div>
       </div>
 
+      <div class="set-line stack">
+        <div class="set-label">
+          Aumentar el descanso de fin de ejercicio
+          <small>El descanso al completar todas las series (el de cambiar de máquina) es de 1 minuto.
+          Aquí le sumas 30 o 45 segundos; si no tocas nada sigue igual. Ahora: <b id="exRestLabel">1:00</b>.
+          Durante el descanso también están los botones +30 s / +45 s para alargar solo ese.</small>
+        </div>
+        <div class="seg plan-seg" id="exRestSeg">
+          <button type="button" data-bonus="0">1 min</button>
+          <button type="button" data-bonus="30">+30 s</button>
+          <button type="button" data-bonus="45">+45 s</button>
+        </div>
+      </div>
+
       <div class="set-line">
         <div class="set-label">
           Alarma fuerte al terminar el descanso
@@ -724,9 +780,19 @@
   <div id="daysContainer"></div>
 </main>
 
-<!-- ===== Temporizador de descanso (solo dentro de un día) ===== -->
+<!-- ===== Foto del ejercicio ampliada a pantalla completa ===== -->
+<div class="photo-modal" id="photoModal" hidden>
+  <button type="button" class="photo-close" id="photoClose" aria-label="Cerrar">✕</button>
+  <div class="photo-stage">
+    <img class="photo-big f0" id="photoBig0" alt="">
+    <img class="photo-big f1" id="photoBig1" alt="">
+  </div>
+  <div class="photo-caption" id="photoCaption"></div>
+</div>
+
 <div class="screen-flash" id="screenFlash" aria-hidden="true"></div>
 
+<!-- ===== Temporizador de descanso (solo dentro de un día) ===== -->
 <div class="rest-bar" id="restBar">
   <div class="rest-quick" id="restQuick">
     <button data-sec="45">⏱ 45s</button>
@@ -736,7 +802,11 @@
   <div class="rest-running" id="restRunning">
     <div class="rest-time" id="restTimeLabel">00:45</div>
     <div class="rest-msg" id="restMsgLabel">Descansando… vuelve a la máquina cuando termine.</div>
-    <button class="btn-ghost" id="restCancelBtn">Cancelar</button>
+    <div class="rest-actions">
+      <button type="button" class="rest-plus" data-plus="30">+30 s</button>
+      <button type="button" class="rest-plus" data-plus="45">+45 s</button>
+      <button class="btn-ghost" id="restCancelBtn">Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -925,6 +995,7 @@ function defaultState(){
            planStart:null, lastRotation:null, rotateAlertSeen:null,
            weekDaysGoal:2, bonusWeeks:0, autoRest:'first', loudRestAlarm:true,
            unavailable:{}, removed:{}, goal:'masa', extraSets:{}, freeEx:{}, extraLog:{},
+           addedSets:{}, exRestBonus:0,
            pendingAlarm:null };
 }
 function loadState(){
@@ -1016,7 +1087,8 @@ function clearExCache(){ _exCache.clear(); }
 function dayExercises(day){
   const guardado = _exCache.get(day.id);
   if(guardado) return guardado;
-  const list = day.exercises.slice(0, MAX_EJ_DIA).map(ex => goalTune(activeExercise(ex)));
+  const list = day.exercises.slice(0, MAX_EJ_DIA)
+    .map((ex,i) => withAddedSet(day.id, i, goalTune(activeExercise(ex))));
   const g = goal();
   if(g.cardioMin > 0) list.push(cardioCard(day.id, g.cardioMin));
   _exCache.set(day.id, list);
@@ -1066,7 +1138,7 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '2.7';          // se muestra al final de Ajustes, para confirmar actualizaciones
+const APP_VERSION = '2.8';          // se muestra al final de Ajustes, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
 const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
 const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
@@ -1074,6 +1146,13 @@ const ALARM_REPEAT_SECONDS = 5;         // la alarma insiste cada 5 s…
 const ALARM_WINDOW_SECONDS = 15;        // …pero se apaga sola a los 15 s, para no
                                         // molestar al resto del gimnasio
 const ALARM_REPEAT_COUNT = Math.ceil(ALARM_WINDOW_SECONDS / ALARM_REPEAT_SECONDS); // 3 tandas: 0, 5 y 10 s
+const MAX_SESSION_SECONDS = 90 * 60;    // el tope de 1h30 de la rutina
+
+/* Descanso al completar TODAS las series: el minuto de cambiar de máquina más
+   el aumento elegido en Ajustes (0, 30 o 45 s). Si no se elige, sigue en 1 min. */
+function exerciseRest(){
+  return AUTO_REST_EXERCISE_SECONDS + (Number(state.exRestBonus) || 0);
+}
 
 /* Días cumplidos (75%+ de sus series) en esa semana. */
 function trainedDaysInWeek(week){
@@ -1126,6 +1205,7 @@ function doRotate(){
   state.extraSets = {};
   state.freeEx = {};
   state.extraLog = {};
+  state.addedSets = {};
   saveState();
   renderAll();
   showView('warmup');
@@ -1500,6 +1580,17 @@ function updateAutoRestSeg(){
   document.querySelectorAll('#autoRestSeg button').forEach(b =>
     b.classList.toggle('on', b.dataset.mode === (state.autoRest || 'first')));
 }
+/* Segmento del aumento del descanso de fin de ejercicio (0 / +30 / +45 s). */
+function updateExRestSeg(){
+  const bonus = Number(state.exRestBonus) || 0;
+  document.querySelectorAll('#exRestSeg button').forEach(b =>
+    b.classList.toggle('on', Number(b.dataset.bonus) === bonus));
+  const lbl = document.getElementById('exRestLabel');
+  if(lbl){
+    const t = AUTO_REST_EXERCISE_SECONDS + bonus;
+    lbl.textContent = `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;
+  }
+}
 function updateUnitSeg(){
   document.querySelectorAll('#unitSeg button').forEach(b =>
     b.classList.toggle('on', b.dataset.unit === state.unit));
@@ -1695,6 +1786,56 @@ function closeModal(){
   modalConfirmAction = null;
 }
 /* =========================================================================
+   UNA SERIE MÁS SOBRE LA MARCHA
+   En los ejercicios de 3 series, al marcar la 2ª aparece el botón para sumar
+   una cuarta con las MISMAS repeticiones y el MISMO descanso. A diferencia de
+   las "series extra" (que se anotan después de hacerlas), esta es una serie
+   del entrenamiento: tiene su casilla, cuenta en el porcentaje del día y
+   arranca el descanso al marcarla. Se guarda en state.addedSets[díaId][índice]
+   y se va al reiniciar el día o al rotar.
+   ========================================================================= */
+function addedSets(dayId, idx){
+  const d = state.addedSets && state.addedSets[dayId];
+  return (d && d[idx]) || 0;
+}
+/* Suma las series añadidas al ejercicio del plan (lo usa dayExercises). */
+function withAddedSet(dayId, idx, ex){
+  const add = addedSets(dayId, idx);
+  return add ? Object.assign({}, ex, { sets: ex.sets + add, added: add }) : ex;
+}
+function exMetaText(ex){
+  const unidad = ex.timed ? 'seg' : 'reps';
+  const extra = ex.added ? ` · +${ex.added} serie añadida` : '';
+  return `${ex.sets} series × ${ex.reps} ${unidad} · Descanso ${ex.rest}s${extra}`;
+}
+function setCheckHtml(dayId, idx, s, anadida){
+  return `
+    <label class="set-check${anadida ? ' added' : ''}">
+      <input type="checkbox" class="set-input" data-day="${dayId}" data-ex="${idx}" data-set="${s}">
+      <span class="set-box"><span class="num">${s+1}</span><span class="chk">✓</span></span>
+    </label>`;
+}
+function addOneSet(dayId, idx){
+  if(addedSets(dayId, idx)) return;
+  const dia = state.addedSets[dayId] || (state.addedSets[dayId] = {});
+  dia[idx] = 1;
+  clearExCache();                     // el ejercicio ahora tiene una serie más
+  saveState();
+  const day = DAYS.find(d => d.id === dayId);
+  const ex = dayExercises(day)[idx];
+  const card = document.querySelector(`.ex-card[data-day="${dayId}"][data-ex="${idx}"]`);
+  if(card){
+    // se añade solo la casilla nueva: repintar el día entero perdería el scroll
+    card.querySelector('.set-row').insertAdjacentHTML('beforeend',
+      setCheckHtml(dayId, idx, ex.sets - 1, true));
+    const meta = card.querySelector('.ex-meta');
+    if(meta) meta.textContent = exMetaText(ex);
+  }
+  refreshDayProgress(day);            // el anillo del día ahora tiene una serie más
+  refreshDayDuration(day);
+}
+
+/* =========================================================================
    SERIES EXTRA
    Cuando ya terminaste todas las series de un ejercicio, puedes añadir las
    que quieras: anotas las repeticiones y arranca el descanso de 45 s.
@@ -1839,11 +1980,15 @@ function setFreeListo(dayId, i, listo){
 }
 
 function resetDay(dayId){
+  const teniaAnadidas = Object.keys(state.addedSets[dayId] || {}).length > 0;
   state.progress[dayId] = {};
   delete state.extraSets[dayId];          // las extra son de la sesión, se van con ella
   delete state.freeEx[dayId];             // y los ejercicios libres también
+  delete state.addedSets[dayId];          // y las series añadidas sobre la marcha
   syncExtraLog(dayId);                    // y su aporte al porcentaje de la semana
   saveState();
+  // si había series añadidas, el día vuelve a tener menos casillas: se repinta
+  if(teniaAnadidas){ renderAll(); showView(dayId); return; }
   const dayObj = DAYS.find(d => d.id === dayId);
   applyStoredChecks(dayObj);
   refreshDayProgress(dayObj);
@@ -2312,18 +2457,18 @@ function exerciseCard(day, ex, idx, natural){
     ? `<p class="swap-note">🔄 Reemplaza a <b>${natural.name}</b> (lo quitaste porque no hay esa máquina)</p>` : '';
   const marcado = isFlagged(ex.ref)
     ? `<p class="swap-note warn-note">🚫 Marcado: no hay esta máquina. Sigue hasta la próxima rotación y ahí se quita para siempre.</p>` : '';
-  const setsHtml = Array.from({length:ex.sets}, (_,s)=>`
-    <label class="set-check">
-      <input type="checkbox" class="set-input" data-day="${day.id}" data-ex="${idx}" data-set="${s}">
-      <span class="set-box"><span class="num">${s+1}</span><span class="chk">✓</span></span>
-    </label>`).join('');
-  const metaTxt = ex.timed
-    ? `${ex.sets} series × ${ex.reps} seg · Descanso ${ex.rest}s`
-    : `${ex.sets} series × ${ex.reps} reps · Descanso ${ex.rest}s`;
+  const anadidas = ex.added || 0;
+  const setsHtml = Array.from({length:ex.sets},
+    (_,s)=> setCheckHtml(day.id, idx, s, s >= ex.sets - anadidas)).join('');
+  const metaTxt = exMetaText(ex);
+  // solo los ejercicios de 3 series ofrecen la cuarta (se muestra al marcar la 2ª)
+  const addSetBtn = (ex.cardio || ex.sets - anadidas !== 3) ? '' :
+    `<button type="button" class="addset-btn" data-addset="${idx}" hidden>➕ Añadir 1 serie más · ${ex.reps} ${ex.timed ? 'seg' : 'reps'} y el mismo descanso</button>`;
   return `
     <article class="ex-card${isFlagged(ex.ref) ? ' flagged-card' : ''}" data-day="${day.id}" data-ex="${idx}" data-ref="${ex.ref}">
-      <div class="ex-photo-wrap">
+      <div class="ex-photo-wrap" data-zoom="${ex.ref}" data-zoomname="${escapeAttr(ex.name)}">
         <span class="photo-badge">Foto real</span>
+        <span class="photo-zoom" aria-hidden="true">🔍</span>
         <img class="ex-photo f0" decoding="async" alt="${escapeAttr(ex.name)} - posición inicial" data-src="${EXDB}${ex.ref}/0.jpg" onerror="handleExPhotoError(this)">
         <img class="ex-photo f1" decoding="async" alt="${escapeAttr(ex.name)} - posición final" data-src="${EXDB}${ex.ref}/1.jpg" onerror="handleExPhotoError(this)">
         <div class="ex-fallback anim-${ex.anim}">
@@ -2349,6 +2494,7 @@ function exerciseCard(day, ex, idx, natural){
         </div>
         <p class="w-prev"></p>`}
         <div class="set-row">${setsHtml}</div>
+        ${addSetBtn}
         ${ex.cardio ? '' : `
         <div class="extra-box">
           <div class="extra-head">➕ Series extra <span class="extra-count" id="xc-${day.id}-${idx}"></span></div>
@@ -2408,6 +2554,29 @@ function updateUnavailableList(){
     eliminados.map(r => fila(r, 'eliminado de la base', 'gone')).join('');
 }
 
+/* =========================================================================
+   FOTO AMPLIADA
+   Al tocar la foto de un ejercicio se abre a pantalla completa, con las dos
+   tomas alternándose igual que en la tarjeta, para ver bien la técnica.
+   ========================================================================= */
+const photoModal = document.getElementById('photoModal');
+function openPhoto(ref, nombre){
+  document.getElementById('photoBig0').src = `${EXDB}${ref}/0.jpg`;
+  document.getElementById('photoBig1').src = `${EXDB}${ref}/1.jpg`;
+  document.getElementById('photoBig0').alt = nombre + ' - posición inicial';
+  document.getElementById('photoBig1').alt = nombre + ' - posición final';
+  const cap = document.getElementById('photoCaption');
+  cap.textContent = nombre;
+  cap.appendChild(Object.assign(document.createElement('small'),
+    { textContent:'Toca la pantalla para cerrar' }));
+  photoModal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+function closePhoto(){
+  photoModal.hidden = true;
+  document.body.classList.remove('modal-open');
+}
+
 /* Si una foto no carga (sin internet, GitHub caído) se muestra el diagrama. */
 function handleExPhotoError(imgEl){
   const wrap = imgEl.closest('.ex-photo-wrap');
@@ -2460,22 +2629,32 @@ function buildDayView(day, position){
   document.getElementById('exlist-' + day.id).innerHTML = dayExercises(day)
     .map((ex,i) => exerciseCard(day, ex, i, base[i] ? cycleExercise(base[i]) : null)).join('');
   // la duración se calcula con los datos reales (no cambia entre variantes)
-  document.getElementById('dur-' + day.id).textContent =
-    formatDurationLong(dayDurationSeconds(day, state.warmupMin));
+  refreshDayDuration(day);
 }
 
+/* Duración del día. Las series que añades sobre la marcha la alargan, así que
+   se repinta al añadirlas y se marca en ámbar si pasa de 1h30: el plan solo
+   nunca pasa, el exceso siempre viene de lo que sumaste tú. */
 function refreshDayDuration(day){
   const el = document.getElementById('dur-' + day.id);
-  if(el) el.textContent = formatDurationLong(dayDurationSeconds(day, state.warmupMin));
+  if(!el) return;
+  const sec = dayDurationSeconds(day, state.warmupMin);
+  el.textContent = formatDurationLong(sec);
+  el.classList.toggle('over', sec > MAX_SESSION_SECONDS);
+  el.title = sec > MAX_SESSION_SECONDS ? 'Con las series que añadiste pasa de 1h30' : '';
 }
 function refreshDayProgress(day){
   let total = 0, done = 0;
   dayExercises(day).forEach((ex,i)=>{
     total += ex.sets;
-    for(let s=0;s<ex.sets;s++) if(state.progress[day.id][`${i}_${s}`]) done++;
-    const exDone = Array.from({length:ex.sets},(_,s)=>!!state.progress[day.id][`${i}_${s}`]).every(Boolean);
+    let hechas = 0;
+    for(let s=0;s<ex.sets;s++) if(state.progress[day.id][`${i}_${s}`]) hechas++;
+    done += hechas;
     const card = document.querySelector(`.ex-card[data-day="${day.id}"][data-ex="${i}"]`);
-    if(card) card.classList.toggle('done', exDone);
+    if(card) card.classList.toggle('done', hechas >= ex.sets);
+    // la cuarta serie se ofrece desde la 2ª marcada, y desaparece al añadirla
+    const addBtn = card && card.querySelector('[data-addset]');
+    if(addBtn) addBtn.hidden = !!ex.added || hechas < 2;
   });
   done = Math.min(total, done + extraSetsToday(day.id));   // lo hecho fuera de la rutina también suma
   const pct = total ? Math.round(done/total*100) : 0;
@@ -2720,6 +2899,13 @@ function restTick(){
     showAlarmNotification('¡Descanso terminado! 💪', 'Vuelve a la máquina.');
   }
 }
+/* "+30 s" / "+45 s" mientras corre el descanso: suma ese tiempo al que queda y
+   reprograma la alarma. Si no se toca, el descanso termina a su hora. */
+function extendRest(extraSec){
+  if(!restTimer.running) return;
+  const quedan = Math.max(0, (restTimer.endAt - Date.now())/1000);
+  startRest(Math.round(quedan) + extraSec);
+}
 function cancelRest(){
   stopRestInterval();
   restTimer.running = false;
@@ -2834,6 +3020,13 @@ function init(){
     if(!b) return;
     state.autoRest = b.dataset.mode; saveState(); updateAutoRestSeg();
   });
+
+  updateExRestSeg();
+  document.getElementById('exRestSeg').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-bonus]');
+    if(!b) return;
+    state.exRestBonus = Number(b.dataset.bonus); saveState(); updateExRestSeg();
+  });
   document.getElementById('rotateBtn').addEventListener('click', openRotateModal);
 
   // cuántos días hacen una semana cumplida
@@ -2893,7 +3086,7 @@ function init(){
     // 1 minuto al completar todas las del ejercicio
     if(e.target.checked && state.autoRest !== 'off'){
       const completo = it.hechas.filter(Boolean).length >= it.sets;
-      startRest(completo ? AUTO_REST_EXERCISE_SECONDS : AUTO_REST_SECONDS);
+      startRest(completo ? exerciseRest() : AUTO_REST_SECONDS);
     }
     e.target.closest('.free-item').classList.toggle('done', it.hechas.filter(Boolean).length >= it.sets);
   });
@@ -2914,7 +3107,7 @@ function init(){
       const exObj = dayExercises(DAYS.find(d=>d.id===day))[Number(ex)];
       let hechas = 0;
       for(let s=0; s<exObj.sets; s++) if(state.progress[day][`${ex}_${s}`]) hechas++;
-      if(hechas >= exObj.sets) startRest(AUTO_REST_EXERCISE_SECONDS);
+      if(hechas >= exObj.sets) startRest(exerciseRest());
       else if(state.autoRest === 'all' || Number(set) === 0) startRest(AUTO_REST_SECONDS);
     }
   });
@@ -2925,6 +3118,16 @@ function init(){
     if(reportBtn){ openWeightReport(reportBtn.dataset.report, false); return; }
     const resetBtn = e.target.closest('[data-reset]');
     if(resetBtn){ openWeightReport(resetBtn.dataset.reset, true); return; }
+    const zoom = e.target.closest('[data-zoom]');
+    if(zoom && !zoom.classList.contains('broken')){
+      openPhoto(zoom.dataset.zoom, zoom.dataset.zoomname);
+      return;
+    }
+    const addSet = e.target.closest('[data-addset]');
+    if(addSet){
+      addOneSet(addSet.closest('.ex-card').dataset.day, Number(addSet.dataset.addset));
+      return;
+    }
     const noEquip = e.target.closest('[data-noequip]');
     if(noEquip){ toggleEquipFlag(noEquip.dataset.noequip); return; }
 
@@ -3007,8 +3210,11 @@ function init(){
     if(action) action();
   });
   weightModal.addEventListener('click', e=>{ if(e.target === weightModal) closeModal(); });
+  photoModal.addEventListener('click', closePhoto);
   document.addEventListener('keydown', e=>{
-    if(e.key === 'Escape' && !weightModal.hidden) closeModal();
+    if(e.key !== 'Escape') return;
+    if(!photoModal.hidden) closePhoto();
+    else if(!weightModal.hidden) closeModal();
   });
 
   restQuick.addEventListener('click', e=>{
@@ -3016,6 +3222,10 @@ function init(){
     if(btn) startRest(Number(btn.dataset.sec));
   });
   document.getElementById('restCancelBtn').addEventListener('click', cancelRest);
+  restRunning.addEventListener('click', e=>{
+    const b = e.target.closest('button[data-plus]');
+    if(b) extendRest(Number(b.dataset.plus));
+  });
   restBar.addEventListener('click', e=>{
     if(restBar.classList.contains('alert') && e.target.id !== 'restCancelBtn') cancelRest();
   });
