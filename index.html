@@ -173,6 +173,29 @@
   .day-summary .min-tag.reached{color:var(--success); font-weight:700;}
   .progress-ring-mini span{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800;}
 
+  .finish-btn{
+    display:block; width:100%; margin-top:4px; margin-bottom:6px;
+    background:linear-gradient(135deg,var(--accent),#ff8f5c); color:#1a0d05;
+    border:none; padding:14px; border-radius:var(--radius-sm); font-size:14.5px; font-weight:800;
+  }
+  .finish-btn:active{filter:brightness(.92);}
+  .finish-hint{font-size:11.5px; color:var(--text-faint); text-align:center; margin-bottom:12px;}
+  .day-summary .done-tag{color:var(--success); font-size:12px; font-weight:700;}
+  .sess-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
+  .sess-grid .cmp-cell{background:var(--card-alt); border-radius:var(--radius-sm); padding:10px 11px;}
+  /* pantalla de cierre: queda a la vista si el navegador no deja cerrar la app */
+  .end-screen{
+    position:fixed; inset:0; z-index:70; background:var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    padding:calc(18px + var(--safe-top)) 16px calc(18px + var(--safe-bottom));
+  }
+  .end-card{width:100%; max-width:460px; text-align:center;}
+  .end-icon{font-size:46px; line-height:1;}
+  .end-card h3{font-size:20px; margin-top:10px;}
+  .end-card .sess-grid{text-align:left;}
+  .end-actions{display:flex; gap:10px; margin-top:20px;}
+  .end-actions .btn-big{flex:1; min-width:0;}
+  .end-note{font-size:11.5px; color:var(--text-faint); margin-top:14px; line-height:1.5;}
   .reset-day-btn{
     display:block; margin:2px auto 16px; background:transparent; border:1px solid var(--border);
     color:var(--text-faint); padding:8px 14px; border-radius:999px; font-size:12px;
@@ -351,10 +374,21 @@
   .modal-backdrop{position:fixed; inset:0; z-index:50; background:#000000a6; display:flex; align-items:flex-end; justify-content:center;}
   .modal-backdrop[hidden]{display:none;}
   .modal-sheet{
-    width:100%; max-width:560px; max-height:86vh; overflow-y:auto; background:var(--bg-elevated);
+    width:100%; max-width:560px; max-height:86vh; background:var(--bg-elevated);
     border:1px solid var(--border); border-bottom:none; border-radius:22px 22px 0 0;
     padding:20px 16px calc(18px + var(--safe-bottom)); animation:sheetUp .22s ease;
+    display:flex; flex-direction:column; min-height:0; position:relative;
   }
+  /* flecha flotante: salta al final de la lista (y al final, vuelve arriba) */
+  .sheet-jump{
+    position:absolute; right:15px; bottom:calc(92px + var(--safe-bottom)); z-index:3;
+    width:44px; height:44px; border-radius:50%; border:none;
+    background:var(--accent); color:#1a0d05; font-size:19px; font-weight:800; line-height:1;
+    box-shadow:0 6px 18px #000000b3;
+  }
+  .sheet-jump:active{filter:brightness(.92);}
+  /* solo el cuerpo se desplaza: el título queda arriba y los botones abajo */
+  #modalBody{flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch;}
   @keyframes sheetUp{from{transform:translateY(40px); opacity:0;} to{transform:none; opacity:1;}}
   .modal-sheet h3{font-size:17px; font-weight:800; line-height:1.3;}
   .modal-sub{color:var(--text-dim); font-size:12.5px; margin-top:5px; line-height:1.45;}
@@ -416,7 +450,10 @@
   .cmp-cell b{display:block; font-size:16px; color:var(--text); text-transform:none; letter-spacing:0; margin-top:2px;}
   .cmp-cell small{display:block; font-size:10.5px; text-transform:none; letter-spacing:0;}
   .modal-empty{color:var(--text-dim); font-size:13px; margin-top:14px; line-height:1.55;}
-  .modal-actions{display:flex; gap:10px; margin-top:18px;}
+  .modal-actions{
+    display:flex; gap:10px; flex:0 0 auto;
+    margin-top:14px; padding-top:14px; border-top:1px solid var(--border);
+  }
   .modal-actions .btn-big{flex:1; min-width:0;}
   body.modal-open{overflow:hidden;}
 
@@ -680,7 +717,7 @@
       <div class="set-line">
         <div class="set-label">
           Alarma fuerte al terminar el descanso
-          <small>Suena al tope que permite el navegador, se repite cada 5 s y se apaga sola a los 15 s para no molestar en el gimnasio.</small>
+          <small>Suena al tope que permite el navegador, se repite cada 5 s y se apaga sola a los 20 s para no molestar en el gimnasio.</small>
         </div>
         <label class="switch">
           <input type="checkbox" id="loudAlarmToggle">
@@ -810,12 +847,29 @@
   </div>
 </div>
 
+<!-- ===== Pantalla de cierre: al finalizar la sesión de rutina ===== -->
+<div class="end-screen" id="endScreen" hidden>
+  <div class="end-card">
+    <div class="end-icon">✅</div>
+    <h3>Entrenamiento guardado</h3>
+    <div id="endBody"></div>
+    <div class="end-actions">
+      <button type="button" class="btn-big btn-ghost" id="endBackBtn">Volver</button>
+      <button type="button" class="btn-big btn-primary" id="endCloseBtn">Cerrar la app</button>
+    </div>
+    <p class="end-note">Si el botón no cierra la app (los navegadores no siempre lo permiten),
+      ya puedes salir tú: todo quedó guardado en el celular.</p>
+  </div>
+</div>
+
 <!-- ===== Ventana: pesos de la semana anterior (antes de reiniciar el día) ===== -->
 <div class="modal-backdrop" id="weightModal" hidden>
   <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <h3 id="modalTitle">Antes de reiniciar</h3>
     <p class="modal-sub" id="modalSub"></p>
     <div id="modalBody"></div>
+    <button type="button" class="sheet-jump" id="sheetJump" hidden
+            aria-label="Ir al final de la lista">↓</button>
     <div class="modal-actions">
       <button type="button" class="btn-big btn-ghost" id="modalCancel">Cancelar</button>
       <button type="button" class="btn-big btn-primary" id="modalConfirm">Reiniciar series</button>
@@ -995,7 +1049,7 @@ function defaultState(){
            planStart:null, lastRotation:null, rotateAlertSeen:null,
            weekDaysGoal:2, bonusWeeks:0, autoRest:'first', loudRestAlarm:true,
            unavailable:{}, removed:{}, goal:'masa', extraSets:{}, freeEx:{}, extraLog:{},
-           addedSets:{}, exRestBonus:0,
+           addedSets:{}, exRestBonus:0, sessionLog:{},
            pendingAlarm:null };
 }
 function loadState(){
@@ -1138,15 +1192,16 @@ function orderedDays(){
    Así una semana a medias no adelanta el aviso, y si entrenas 2 días por
    semana el contador igual avanza. A eso se le suman las semanas que
    entrenaste antes de tener la app (state.bonusWeeks). */
-const APP_VERSION = '2.8';          // se muestra al final de Ajustes, para confirmar actualizaciones
+const APP_VERSION = '2.9.2';          // se muestra al final de Ajustes, para confirmar actualizaciones
 const ROTATION_WEEKS = 8;
 const AUTO_REST_SECONDS = 45;           // descanso al marcar una serie
 const AUTO_REST_EXERCISE_SECONDS = 60;  // descanso al completar TODAS las series del ejercicio
 const ALARM_REPEAT_SECONDS = 5;         // la alarma insiste cada 5 s…
-const ALARM_WINDOW_SECONDS = 15;        // …pero se apaga sola a los 15 s, para no
+const ALARM_WINDOW_SECONDS = 20;        // …pero se apaga sola a los 20 s, para no
                                         // molestar al resto del gimnasio
-const ALARM_REPEAT_COUNT = Math.ceil(ALARM_WINDOW_SECONDS / ALARM_REPEAT_SECONDS); // 3 tandas: 0, 5 y 10 s
+const ALARM_REPEAT_COUNT = Math.ceil(ALARM_WINDOW_SECONDS / ALARM_REPEAT_SECONDS); // 4 tandas: 0, 5, 10 y 15 s
 const MAX_SESSION_SECONDS = 90 * 60;    // el tope de 1h30 de la rutina
+const MAX_FOTOS = 120;                  // mismo tope que sw.js, solo para informar
 
 /* Descanso al completar TODAS las series: el minuto de cambiar de máquina más
    el aumento elegido en Ajustes (0, 30 o 45 s). Si no se elige, sigue en 1 min. */
@@ -1552,7 +1607,11 @@ function setGoal(id){
   showView(vista);
 }
 
-/* Espacio que ocupan las fotos guardadas para usar la app sin señal. */
+/* Espacio que ocupan las fotos guardadas para usar la app sin señal.
+   OJO con navigator.storage.estimate(): por cada foto de otro dominio (las de
+   GitHub son "opaque") el navegador suma un relleno interno enorme, por eso
+   reportaba más de 100 MB con 16 fotos. Lo real es el conteo × ~70 KB. */
+const KB_POR_FOTO = 70;
 async function updateCacheInfo(){
   const el = document.getElementById('cacheInfo');
   if(!el) return;
@@ -1562,10 +1621,9 @@ async function updateCacheInfo(){
       const c = await caches.open('gym-rutina-v1');
       fotos = (await c.keys()).length;
     }
-    const est = navigator.storage && navigator.storage.estimate
-      ? await navigator.storage.estimate() : null;
-    const mb = est && est.usage ? (est.usage/1048576).toFixed(1) + ' MB' : '—';
-    el.textContent = `${mb} · ${fotos} fotos guardadas (tope ${120}). Se borran solas las más viejas.`;
+    const mb = (fotos * KB_POR_FOTO / 1024).toFixed(1);
+    el.textContent = `${fotos} fotos guardadas de ${MAX_FOTOS} ≈ ${mb} MB.`
+      + ' Se borran solas las más viejas; el celular puede reportar más por un relleno interno del navegador.';
   }catch(e){ el.textContent = 'No disponible en este navegador.'; }
 }
 async function clearPhotoCache(){
@@ -1605,6 +1663,47 @@ function updateUnitSeg(){
      · antes de reiniciar el día (ahí confirmar solo desmarca las series)
    ========================================================================= */
 const weightModal = document.getElementById('weightModal');
+const modalBodyEl = document.getElementById('modalBody');
+const sheetJump = document.getElementById('sheetJump');
+
+/* La lista de pesos puede ser larga: esta flecha salta al final (donde están
+   los últimos ejercicios y los pesos de antes de rotar) y, una vez abajo,
+   cambia a ↑ para volver al principio. Se esconde sola si todo ya se ve. */
+function updateSheetJump(){
+  const b = modalBodyEl;
+  if(b.scrollHeight - b.clientHeight <= 24){ sheetJump.hidden = true; return; }
+  const alFinal = b.scrollTop + b.clientHeight >= b.scrollHeight - 8;
+  sheetJump.hidden = false;
+  sheetJump.textContent = alFinal ? '↑' : '↓';
+  sheetJump.setAttribute('aria-label', alFinal ? 'Volver al principio de la lista' : 'Ir al final de la lista');
+}
+function jumpSheet(){
+  const b = modalBodyEl;
+  const alFinal = b.scrollTop + b.clientHeight >= b.scrollHeight - 8;
+  animarScroll(b, alFinal ? 0 : b.scrollHeight, 380);
+  setTimeout(updateSheetJump, 460);   // ↓ pasa a ↑ al llegar abajo (y al revés)
+}
+/* Desplazamiento suave hecho a mano: scrollTo({behavior:'smooth'}) no funciona
+   en todos los WebView de Android (ni en el navegador de pruebas), así que se
+   anima con requestAnimationFrame para que se vea igual en todos lados. */
+function animarScroll(el, destino, ms){
+  const fin = Math.max(0, Math.min(destino, el.scrollHeight - el.clientHeight));
+  const inicio = el.scrollTop, delta = fin - inicio;
+  if(Math.abs(delta) < 2) return;
+  const t0 = performance.now();
+  let cuadros = 0;
+  const paso = ahora => {
+    cuadros++;
+    const p = Math.min(1, (ahora - t0) / ms);
+    const e = p < .5 ? 2*p*p : 1 - Math.pow(-2*p + 2, 2)/2;   // easeInOutQuad
+    el.scrollTop = inicio + delta * e;
+    if(p < 1) requestAnimationFrame(paso);
+  };
+  requestAnimationFrame(paso);
+  // red de seguridad: si el navegador no dibuja cuadros, el salto igual llega
+  // (sin animación). Solo actúa si requestAnimationFrame nunca corrió.
+  setTimeout(()=>{ if(cuadros === 0) el.scrollTop = fin; }, ms + 60);
+}
 let modalConfirmAction = null;
 
 function compareRowHtml(ex, dayId){
@@ -1711,7 +1810,12 @@ function openWeightReport(dayId, fromReset){
   const list = dayExercises(day).filter(ex => !ex.cardio);   // el cardio no lleva peso
   const hasAny = list.some(ex => weightPrevWeek(ex.ref) || weightThisWeek(ex.ref) !== undefined);
   const prevBlock = justRotated() ? prevVariantBlockHtml(day) : '';
-  const showReset = fromReset || dayHasChecks(dayId);
+  // el botón de reiniciar va SIEMPRE, también cuando el reporte se abre solo al
+  // entrar al día: así se empieza limpio sin tener que bajar hasta el final
+  const hayMarcas = dayHasChecks(dayId);
+  const avisoMarcas = (!fromReset && hayMarcas)
+    ? `<div class="cmp-banner plan">Este día tiene series marcadas. Si son de la semana pasada,
+       toca <b>🧹 Reiniciar series</b> para empezar limpio (los pesos no se borran).</div>` : '';
 
   openModal({
     title: fromReset
@@ -1720,13 +1824,14 @@ function openWeightReport(dayId, fromReset){
     sub: fromReset
       ? 'Tus pesos quedan guardados: solo se desmarcan las series.'
       : 'El peso sube cada 2 semanas, y solo si la semana anterior fue cumplida (llegaste al mínimo de días). Si no, se repite el peso.',
-    bodyHtml: hasAny
+    bodyHtml: avisoMarcas + (hasAny
       ? planBannerHtml(dayId) + summaryHtml(list) + list.map(ex => compareRowHtml(ex, dayId)).join('') + prevBlock
       : (prevBlock || `<p class="modal-empty">Todavía no anotaste pesos en este día.<br>
-         Escríbelos en el campo <b>Peso</b> de cada ejercicio y la próxima semana verás aquí tu reporte y tus metas.</p>`),
-    confirmText: showReset ? 'Reiniciar series' : null,
-    cancelText: fromReset ? 'Cancelar' : (showReset ? 'Cerrar' : 'Empezar 💪'),
-    onConfirm: showReset ? () => resetDay(dayId) : null
+         Escríbelos en el campo <b>Peso</b> de cada ejercicio y la próxima semana verás aquí tu reporte y tus metas.</p>`)),
+    confirmText: fromReset ? 'Reiniciar series' : '🧹 Reiniciar series',
+    confirmGhost: !fromReset,            // al entrar al día, lo principal es empezar
+    cancelText: fromReset ? 'Cancelar' : 'Empezar 💪',
+    onConfirm: () => resetDay(dayId)
   });
 }
 /* La primera vez que abres un día en la semana, el reporte aparece solo. */
@@ -1769,22 +1874,131 @@ function maybeRotationAlert(){
 function openModal(opts){
   document.getElementById('modalTitle').textContent = opts.title;
   document.getElementById('modalSub').textContent = opts.sub || '';
-  document.getElementById('modalBody').innerHTML = opts.bodyHtml || '';
+  modalBodyEl.innerHTML = opts.bodyHtml || '';
+  modalBodyEl.scrollTop = 0;          // cada ventana abre desde arriba
   const btnCancel = document.getElementById('modalCancel');
   const btnConfirm = document.getElementById('modalConfirm');
   btnConfirm.hidden = !opts.confirmText;
   if(opts.confirmText) btnConfirm.textContent = opts.confirmText;
   btnCancel.textContent = opts.cancelText || 'Cerrar';
-  btnCancel.className = 'btn-big ' + (opts.confirmText ? 'btn-ghost' : 'btn-primary');
+  // confirmGhost: el botón de confirmar es la acción SECUNDARIA (p. ej. reiniciar
+  // series dentro del reporte, donde lo normal es empezar a entrenar)
+  btnConfirm.className = 'btn-big ' + (opts.confirmGhost ? 'btn-ghost' : 'btn-primary');
+  btnCancel.className  = 'btn-big ' +
+    (opts.confirmText && !opts.confirmGhost ? 'btn-ghost' : 'btn-primary');
   modalConfirmAction = opts.onConfirm || null;
   weightModal.hidden = false;
   document.body.classList.add('modal-open');
+  updateSheetJump();                  // la flecha solo sale si hay más abajo
 }
 function closeModal(){
   weightModal.hidden = true;
+  sheetJump.hidden = true;
   document.body.classList.remove('modal-open');
   modalConfirmAction = null;
 }
+/* =========================================================================
+   FINALIZAR SESIÓN DE RUTINA
+   El botón del final del día cierra el entrenamiento: deja guardado lo que
+   marcaste (series, extras, pesos), apaga temporizadores, alarma y bloqueo de
+   pantalla, anota la sesión en state.sessionLog[díaId][semana] y cierra la app.
+   OJO: window.close() solo funciona en la app instalada (PWA/APK); en una
+   pestaña normal el navegador lo bloquea, por eso queda la pantalla de cierre
+   diciendo que ya se puede salir.
+   ========================================================================= */
+/* Fecha de hoy como "2026-11-13" (local, no UTC: toISOString correría el día). */
+function hoyKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function sessionSummary(dayId){
+  const day = DAYS.find(d => d.id === dayId);
+  const list = dayExercises(day);
+  let total = 0, hechas = 0, completos = 0;
+  list.forEach((ex,i) => {
+    total += ex.sets;
+    let n = 0;
+    for(let s = 0; s < ex.sets; s++) if(state.progress[dayId][`${i}_${s}`]) n++;
+    hechas += n;
+    if(n >= ex.sets) completos++;
+  });
+  const extra = extraSetsToday(dayId);
+  const pct = total ? Math.min(100, Math.round((hechas + extra) / total * 100)) : 0;
+  const pesos = list.filter(ex => !ex.cardio && weightThisWeek(ex.ref) !== undefined).length;
+  return { total, hechas, completos, extra, pct, pesos, ejercicios:list.length };
+}
+function finishBodyHtml(r){
+  const banner = r.pct >= Math.round(MIN_COMPLETION*100)
+    ? `<div class="cmp-banner good">✅ Hiciste el <b>${r.pct}%</b> de la rutina: el día cuenta como cumplido.</div>`
+    : `<div class="cmp-banner low">Llevas el <b>${r.pct}%</b> de la rutina. El día cuenta a partir del ${Math.round(MIN_COMPLETION*100)}%.</div>`;
+  return banner + `<div class="sess-grid">
+    <div class="cmp-cell">Series marcadas<b>${r.hechas} de ${r.total}</b></div>
+    <div class="cmp-cell">Ejercicios completos<b>${r.completos} de ${r.ejercicios}</b></div>
+    <div class="cmp-cell">Pesos anotados<b>${r.pesos}</b></div>
+    <div class="cmp-cell">Fuera de la rutina<b>${r.extra} ${r.extra === 1 ? 'serie' : 'series'}</b></div>
+  </div>`;
+}
+function openFinishModal(dayId){
+  const day = DAYS.find(d => d.id === dayId);
+  const pos = orderedDays().indexOf(day) + 1;
+  openModal({
+    title: `🏁 Finalizar sesión · Día ${pos} · ${day.title}`,
+    sub: 'Se guarda todo lo de hoy y se cierra la aplicación.',
+    bodyHtml: finishBodyHtml(sessionSummary(dayId)) +
+      `<p class="modal-empty">Las series marcadas y los pesos quedan guardados en el celular.
+       La próxima vez que abras este día vas a ver el reporte con estos pesos y tus metas.</p>`,
+    confirmText: '🏁 Guardar y cerrar',
+    cancelText: 'Seguir entrenando',
+    onConfirm: () => finishSession(dayId)
+  });
+}
+function finishSession(dayId){
+  const day = DAYS.find(d => d.id === dayId);
+  const r = sessionSummary(dayId);
+  // 1) que no quede nada a medias: se vuelca lo hecho al histórico de la semana
+  dayExercises(day).forEach((ex,i) => {
+    let n = 0;
+    for(let s = 0; s < ex.sets; s++) if(state.progress[dayId][`${i}_${s}`]) n++;
+    if(n) recordDone(dayId, i);       // doneLog + arrastre del peso
+  });
+  syncExtraLog(dayId);                // series extra y ejercicios libres
+  const log = state.sessionLog[dayId] || (state.sessionLog[dayId] = {});
+  log[weekKey()] = { fecha: hoyKey(), pct: r.pct, hechas: r.hechas + r.extra, total: r.total };
+  trimWeeks(log);
+  // 2) apagar lo que sigue corriendo para que el celular descanse
+  cancelRest();
+  resetWarmup();
+  releaseWakeLock();
+  saveState();
+  refreshSessionTag(day);
+  // 3) despedida + intento de cerrar la app
+  showEndScreen(finishBodyHtml(r));
+  setTimeout(tryCloseApp, 400);
+}
+function showEndScreen(html){
+  document.getElementById('endBody').innerHTML = html;
+  document.getElementById('endScreen').hidden = false;
+  document.body.classList.add('modal-open');
+}
+function hideEndScreen(){
+  document.getElementById('endScreen').hidden = true;
+  document.body.classList.remove('modal-open');
+}
+function tryCloseApp(){
+  try{ window.close(); }catch(e){ /* el navegador no lo permite */ }
+}
+/* Marca "sesión finalizada" en la cabecera del día (solo la de esta semana). */
+function refreshSessionTag(day){
+  const el = document.getElementById('done-' + day.id);
+  if(!el) return;
+  const ses = (state.sessionLog && state.sessionLog[day.id] || {})[weekKey()];
+  el.hidden = !ses;
+  if(ses){
+    const [, m, d] = ses.fecha.split('-');
+    el.textContent = `🏁 Sesión finalizada el ${Number(d)} ${MESES[Number(m)-1]} · ${ses.pct}%`;
+  }
+}
+
 /* =========================================================================
    UNA SERIE MÁS SOBRE LA MARCHA
    En los ejercicios de 3 series, al marcar la 2ª aparece el botón para sumar
@@ -1985,6 +2199,7 @@ function resetDay(dayId){
   delete state.extraSets[dayId];          // las extra son de la sesión, se van con ella
   delete state.freeEx[dayId];             // y los ejercicios libres también
   delete state.addedSets[dayId];          // y las series añadidas sobre la marcha
+  if(state.sessionLog[dayId]) delete state.sessionLog[dayId][weekKey()];  // vuelve a estar abierta
   syncExtraLog(dayId);                    // y su aporte al porcentaje de la semana
   saveState();
   // si había series añadidas, el día vuelve a tener menos casillas: se repinta
@@ -1992,6 +2207,7 @@ function resetDay(dayId){
   const dayObj = DAYS.find(d => d.id === dayId);
   applyStoredChecks(dayObj);
   refreshDayProgress(dayObj);
+  refreshSessionTag(dayObj);
   refreshAllExtras(dayObj);
   refreshFree(dayId);
 }
@@ -2311,7 +2527,7 @@ function setScreenFlash(on){
 
 /* Vibración que acompaña a la alarma repetida (solo si el JS está vivo). */
 let alertVibeId = null;
-/* Arranca el aviso (vibración + parpadeo) y lo apaga solo a los 15 s. */
+/* Arranca el aviso (vibración + parpadeo) y lo apaga solo a los 20 s. */
 let alertOffId = null;
 function startAlertVibration(){
   stopAlertVibration();
@@ -2605,6 +2821,7 @@ function buildDayView(day, position){
         <span class="goal-tag">${goal().icono} ${goal().nombre}</span> · Variante ${VARIANTS[variantIdx()]}<br>
         <span class="plan-tag" id="plan-${day.id}"></span><br>
         <span class="min-tag" id="min-${day.id}"></span>
+        <span class="done-tag" id="done-${day.id}" hidden></span>
       </div>
       <div class="progress-ring-mini">
         <svg viewBox="0 0 52 52">
@@ -2622,6 +2839,8 @@ function buildDayView(day, position){
       <div id="free-${day.id}"></div>
       <button type="button" class="free-add" data-freeadd="${day.id}">➕ Añadir ejercicio libre</button>
     </div>
+    <button type="button" class="finish-btn" data-finish="${day.id}">🏁 Finalizar sesión de rutina</button>
+    <p class="finish-hint">Guarda todo lo que marcaste hoy y cierra la aplicación.</p>
     <button class="reset-day-btn" data-reset="${day.id}">Reiniciar progreso de hoy</button>
   `;
   daysContainer.appendChild(wrap);
@@ -2701,7 +2920,8 @@ function renderAll(){
 
   daysContainer.innerHTML = '';
   days.forEach((d,i)=> buildDayView(d, i+1));
-  days.forEach(d=>{ applyStoredChecks(d); refreshDayProgress(d); refreshAllExtras(d); refreshFree(d.id); });
+  days.forEach(d=>{ applyStoredChecks(d); refreshDayProgress(d); refreshAllExtras(d);
+                    refreshFree(d.id); refreshSessionTag(d); });
   refreshWeightUI();
   updateUnitSeg();
 
@@ -3123,6 +3343,8 @@ function init(){
       openPhoto(zoom.dataset.zoom, zoom.dataset.zoomname);
       return;
     }
+    const finish = e.target.closest('[data-finish]');
+    if(finish){ openFinishModal(finish.dataset.finish); return; }
     const addSet = e.target.closest('[data-addset]');
     if(addSet){
       addOneSet(addSet.closest('.ex-card').dataset.day, Number(addSet.dataset.addset));
@@ -3203,6 +3425,10 @@ function init(){
     refreshBodyUI();
   });
 
+  sheetJump.addEventListener('click', jumpSheet);
+  modalBodyEl.addEventListener('scroll', updateSheetJump, { passive:true });
+  document.getElementById('endBackBtn').addEventListener('click', hideEndScreen);
+  document.getElementById('endCloseBtn').addEventListener('click', tryCloseApp);
   document.getElementById('modalCancel').addEventListener('click', closeModal);
   document.getElementById('modalConfirm').addEventListener('click', ()=>{
     const action = modalConfirmAction;
@@ -3213,7 +3439,8 @@ function init(){
   photoModal.addEventListener('click', closePhoto);
   document.addEventListener('keydown', e=>{
     if(e.key !== 'Escape') return;
-    if(!photoModal.hidden) closePhoto();
+    if(!document.getElementById('endScreen').hidden) hideEndScreen();
+    else if(!photoModal.hidden) closePhoto();
     else if(!weightModal.hidden) closeModal();
   });
 
